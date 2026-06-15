@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { X, AlertCircle, PlusCircle, ShieldCheck } from "lucide-react";
+import {
+  X,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  PlusCircle,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 
 type Item = {
   id: string;
@@ -9,6 +17,7 @@ type Item = {
   documents: {
     name: string;
     level: string;
+    versions?: string[];
   }[];
   description: string;
   updated: string;
@@ -43,16 +52,30 @@ const handheldDocs = [
 ].map((name, index) => ({
   name,
   level: index % 5 === 0 ? "2 - 内部" : "1 - 公开",
+  ...(index === 0
+    ? {
+        name: "产品说明书-封面及版本记录-V10.pdf",
+        versions: ["V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10"],
+      }
+    : {}),
 }));
 
 const makeDocuments = (names: string[]) =>
   names.map((name, index) => ({
     name,
     level: index % 4 === 0 ? "2 - 内部" : "1 - 公开",
+    ...(index === 0
+      ? {
+          name: name.replace(/(\.[^.]+)$/, "-V10$1"),
+          versions: ["V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10"],
+        }
+      : {}),
   }));
 
 const formatSecurityLevel = (level: string) =>
   level.replace(/^\s*\d+\s*-\s*/, "");
+
+const DOCUMENT_PAGE_SIZE = 5;
 
 const items: Item[] = [
   {
@@ -182,8 +205,26 @@ export function KnowledgeBaseModal({
     new Set(["1"]),
   );
   const [query, setQuery] = useState("");
-  const [hoveredDocumentId, setHoveredDocumentId] = useState<string | null>(
+  const [openDocumentId, setOpenDocumentId] = useState<string | null>(
     null,
+  );
+  const [documentQuery, setDocumentQuery] = useState("");
+  const [documentPage, setDocumentPage] = useState(1);
+  const [selectedDocumentKeys, setSelectedDocumentKeys] = useState<Set<string>>(
+    () =>
+      new Set(
+        items.flatMap((item) =>
+          item.documents.map((document) => `${item.id}:${document.name}`),
+        ),
+      ),
+  );
+  const [draftDocumentKeys, setDraftDocumentKeys] = useState<Set<string>>(
+    () =>
+      new Set(
+        items.flatMap((item) =>
+          item.documents.map((document) => `${item.id}:${document.name}`),
+        ),
+      ),
   );
   const [hoveredKnowledgeBaseId, setHoveredKnowledgeBaseId] = useState<
     string | null
@@ -198,6 +239,25 @@ export function KnowledgeBaseModal({
     setSelected(next);
   };
 
+  const toggleDocument = (key: string) => {
+    setDraftDocumentKeys((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const cancelDocumentSelection = () => {
+    setDraftDocumentKeys(new Set(selectedDocumentKeys));
+    setOpenDocumentId(null);
+  };
+
+  const confirmDocumentSelection = () => {
+    setSelectedDocumentKeys(new Set(draftDocumentKeys));
+    setOpenDocumentId(null);
+  };
+
   const q = query.trim().toLowerCase();
   const filtered = items
     .filter((i) => {
@@ -205,6 +265,7 @@ export function KnowledgeBaseModal({
       if (!q) return true;
       return (
         i.name.toLowerCase().includes(q) ||
+        i.description.toLowerCase().includes(q) ||
         i.tags.some((t) => t.toLowerCase().includes(q))
       );
     })
@@ -271,7 +332,7 @@ export function KnowledgeBaseModal({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜索库名 / 知识点"
+              placeholder="搜索库名 / 概述 / 知识点"
               className="w-[180px] rounded-md border border-[#e5e7ec] px-3 py-1.5 text-[13px] outline-none placeholder:text-[#9098a4] focus:border-[#6b59f5]"
             />
           </div>
@@ -281,20 +342,19 @@ export function KnowledgeBaseModal({
         <div className="flex-1 overflow-y-auto px-6">
           <table className="w-full text-[13px] leading-5">
             <thead className="sticky top-0 bg-white text-[13px] font-medium text-[#6b7280]">
-              <tr className="border-b border-[#eef0f3]">
-                <th className="w-10 py-3 text-left">
+              <tr className="flex items-center border-b border-[#eef0f3]">
+                <th className="order-1 w-10 shrink-0 py-3 text-left">
                   <span className="block h-3.5 w-3.5 rounded-sm bg-[#3b82f6]" />
                 </th>
-                <th className="py-3 text-left">库名</th>
-                <th className="w-28 py-3 text-left">
+                <th className="order-2 min-w-0 flex-1 py-3 text-left">库名</th>
+                <th className="order-4 w-28 shrink-0 py-3 text-left">
                   涉密等级
                 </th>
-                <th className="w-40 py-3 text-left">
+                <th className="order-5 w-40 shrink-0 py-3 text-left">
                   语种
                 </th>
-                <th className="w-20 py-3 text-left">文档</th>
-                <th className="w-48 py-3 text-left">知识点标签</th>
-                <th className="w-28 py-3 text-left">
+                <th className="order-3 w-20 shrink-0 py-3 text-left">关联文档</th>
+                <th className="order-6 w-28 shrink-0 py-3 text-left">
                   更新时间
                 </th>
               </tr>
@@ -302,12 +362,31 @@ export function KnowledgeBaseModal({
             <tbody>
               {filtered.map((it) => {
                 const checked = selected.has(it.id);
+                const normalizedDocumentQuery = documentQuery.trim().toLowerCase();
+                const filteredDocuments = it.documents.filter((document) =>
+                  document.name.toLowerCase().includes(normalizedDocumentQuery),
+                );
+                const documentPageCount = Math.max(
+                  1,
+                  Math.ceil(filteredDocuments.length / DOCUMENT_PAGE_SIZE),
+                );
+                const currentDocumentPage = Math.min(documentPage, documentPageCount);
+                const pagedDocuments = filteredDocuments.slice(
+                  (currentDocumentPage - 1) * DOCUMENT_PAGE_SIZE,
+                  currentDocumentPage * DOCUMENT_PAGE_SIZE,
+                );
+                const selectedDocumentCount = it.documents.filter((document) =>
+                  selectedDocumentKeys.has(`${it.id}:${document.name}`),
+                ).length;
+                const draftDocumentCount = it.documents.filter((document) =>
+                  draftDocumentKeys.has(`${it.id}:${document.name}`),
+                ).length;
                 return (
                   <tr
                     key={it.id}
-                    className="border-b border-[#f3f4f7] hover:bg-[#fafbfc]"
+                    className="flex items-center border-b border-[#f3f4f7] hover:bg-[#fafbfc]"
                   >
-                    <td className="py-3 rounded-[100px]">
+                    <td className="order-1 w-10 shrink-0 rounded-[100px] py-3">
                       <button
                         onClick={() => toggle(it.id)}
                         className={`flex h-4 w-4 items-center justify-center rounded border ${
@@ -333,7 +412,7 @@ export function KnowledgeBaseModal({
                         )}
                       </button>
                     </td>
-                    <td className="py-3 text-[#1f2329]">
+                    <td className="order-2 min-w-0 flex-1 py-3 text-[#1f2329]">
                       <div
                         className="group relative inline-flex max-w-full"
                         onMouseEnter={() => setHoveredKnowledgeBaseId(it.id)}
@@ -343,8 +422,8 @@ export function KnowledgeBaseModal({
                       >
                         <button
                           type="button"
-                          className="max-w-[210px] break-words text-left text-[13px] leading-5 underline-offset-2 hover:text-[#2563eb] hover:underline"
-                          aria-label={`查看 ${it.name} 简介`}
+                          className="max-w-[320px] break-words text-left text-[13px] leading-5 underline-offset-2 hover:text-[#2563eb] hover:underline"
+                          aria-label={`查看 ${it.name} 概述和知识点`}
                         >
                           {it.name}
                         </button>
@@ -355,21 +434,28 @@ export function KnowledgeBaseModal({
                               : "hidden"
                           }`}
                         >
-                          <div className="mb-1 text-[13px] font-medium leading-5">
-                            库简介:
-                          </div>
                           <div className="text-[12px] leading-5 text-[#3a4150]">
                             {it.description}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {it.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-flex h-5 items-center rounded border border-[#fed7aa] bg-[#fff7ed] px-1.5 text-[12px] text-[#f97316]"
+                              >
+                                {tag}
+                              </span>
+                            ))}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3">
+                    <td className="order-4 w-28 shrink-0 py-3">
                       <span className="rounded border border-[#a7f3d0] bg-[#ecfdf5] px-2 py-0.5 text-[12px] text-[#10b981]">
                         {formatSecurityLevel(it.level)}
                       </span>
                     </td>
-                    <td className="py-3 text-[#3a4150]">
+                    <td className="order-5 w-40 shrink-0 py-3 text-[#3a4150]">
                       {(() => {
                         const map: Record<string, string> = {
                           简体中文: "中", 中文: "中", 英语: "英", 英文: "英",
@@ -406,57 +492,171 @@ export function KnowledgeBaseModal({
                         );
                       })()}
                     </td>
-                    <td className="py-3 text-[#3a4150]">
+                    <td className="order-3 w-20 shrink-0 py-3 text-[#3a4150]">
                       {it.documents.length > 0 ? (
                         <div
-                          className="group relative inline-flex"
-                          onMouseEnter={() => setHoveredDocumentId(it.id)}
-                          onMouseLeave={() => setHoveredDocumentId(null)}
-                          onFocus={() => setHoveredDocumentId(it.id)}
-                          onBlur={() => setHoveredDocumentId(null)}
+                          className="relative inline-flex"
                         >
                           <button
                             type="button"
+                            onClick={() => {
+                              setOpenDocumentId(it.id);
+                              setDraftDocumentKeys(new Set(selectedDocumentKeys));
+                              setDocumentQuery("");
+                              setDocumentPage(1);
+                            }}
                             className="rounded px-1 py-0.5 text-left text-[13px] leading-5 text-[#2563eb] underline-offset-2 hover:bg-[#eff6ff] hover:underline"
-                            aria-label={`查看 ${it.documents.length} 个文档`}
+                            aria-label={`查看关联文档，已选 ${selectedDocumentCount} 个，共 ${it.documents.length} 个`}
+                            aria-expanded={openDocumentId === it.id}
                           >
-                            {it.documents.length}
+                            {selectedDocumentCount}
                           </button>
                           <div
-                            className={`pointer-events-none absolute left-1/2 top-7 z-20 w-[360px] -translate-x-1/2 rounded-lg border border-[#e5e7ec] bg-white p-3 text-[#1f2329] shadow-xl group-hover:block ${
-                              hoveredDocumentId === it.id ? "block" : "hidden"
+                            role="dialog"
+                            aria-label={`${it.name}的关联文档`}
+                            className={`absolute right-0 top-7 z-20 w-[440px] rounded-lg border border-[#e5e7ec] bg-white p-3 text-[#1f2329] shadow-xl ${
+                              openDocumentId === it.id ? "block" : "hidden"
                             }`}
                           >
                             <div className="mb-2 flex items-center justify-between gap-3">
                               <span className="text-[13px] font-medium leading-5">
-                                包含文档
+                                关联文档
                               </span>
-                              <span className="text-[12px] text-[#6b7280]">
-                                共 {it.documents.length} 个
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[12px] text-[#6b7280]">
+                                  {draftDocumentCount}/{it.documents.length}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={cancelDocumentSelection}
+                                  className="flex h-6 w-6 items-center justify-center rounded text-[#9098a4] hover:bg-[#f1f3f6] hover:text-[#1f2329]"
+                                  title="关闭关联文档"
+                                  aria-label="关闭关联文档"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
                             <div className="mb-2 flex items-center gap-1 rounded-md bg-[#fff7ed] px-2 py-1.5 text-[12px] text-[#f97316]">
                               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                               {it.documentNotice ??
                                 "涉密等级≤人员密级的文件才出现在列表中"}
                             </div>
-                            <div className="max-h-[260px] overflow-y-auto pr-1">
-                              {it.documents.map((doc, index) => (
-                                <div
-                                  key={`${doc.name}-${index}`}
-                                  className="border-b border-[#f3f4f7] py-2 last:border-b-0"
-                                >
-                                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                                    <span className="min-w-0 break-words text-[12px] leading-5 text-[#3a4150]">
-                                    {doc.name}
-                                    </span>
-                                    <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1.5 py-0.5 text-[12px] leading-4 text-[#10b981]">
-                                      <ShieldCheck className="h-3 w-3" />
-                                      {formatSecurityLevel(doc.level)}
-                                    </span>
-                                  </div>
+                            <div className="relative mb-2">
+                              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9098a4]" />
+                              <input
+                                value={documentQuery}
+                                onChange={(event) => {
+                                  setDocumentQuery(event.target.value);
+                                  setDocumentPage(1);
+                                }}
+                                placeholder="按文件名称筛选"
+                                className="h-8 w-full rounded-md border border-[#e5e7ec] bg-white pl-8 pr-3 text-[12px] outline-none placeholder:text-[#9098a4] focus:border-[#3b82f6]"
+                              />
+                            </div>
+                            <div className="min-h-[235px]">
+                              {pagedDocuments.length > 0 ? (
+                                pagedDocuments.map((doc, index) => {
+                                  const documentKey = `${it.id}:${doc.name}`;
+                                  const documentChecked = draftDocumentKeys.has(documentKey);
+                                  return (
+                                    <div
+                                      key={`${doc.name}-${index}`}
+                                      className="flex items-start gap-2 border-b border-[#f3f4f7] py-2.5 last:border-b-0"
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleDocument(documentKey)}
+                                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                                          documentChecked
+                                            ? "border-[#3b82f6] bg-[#3b82f6]"
+                                            : "border-[#cbd0d8] bg-white"
+                                        }`}
+                                        aria-label={`${documentChecked ? "取消选择" : "选择"} ${doc.name}`}
+                                        aria-pressed={documentChecked}
+                                      >
+                                        {documentChecked && (
+                                          <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none">
+                                            <path
+                                              d="M2.5 6.5l2.5 2.5 4.5-5"
+                                              stroke="currentColor"
+                                              strokeWidth="1.6"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                            />
+                                          </svg>
+                                        )}
+                                      </button>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                          <span className="min-w-0 break-words text-[12px] leading-5 text-[#3a4150]">
+                                            {doc.name}
+                                          </span>
+                                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1.5 py-0.5 text-[12px] leading-4 text-[#10b981]">
+                                            <ShieldCheck className="h-3 w-3" />
+                                            {formatSecurityLevel(doc.level)}
+                                          </span>
+                                          {doc.versions && doc.versions.length > 1 && (
+                                            <span
+                                              title={`历史版本：${doc.versions.join("、")}`}
+                                              className="inline-flex shrink-0 items-center rounded border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[12px] leading-4 text-[#2563eb]"
+                                            >
+                                              最新版本 {doc.versions.at(-1)}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div className="flex h-[180px] items-center justify-center text-[12px] text-[#9098a4]">
+                                  无匹配文件
                                 </div>
-                              ))}
+                              )}
+                            </div>
+                            <div className="mt-2 flex items-center justify-between border-t border-[#eef0f3] pt-2">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setDocumentPage((page) => Math.max(1, page - 1))}
+                                  disabled={currentDocumentPage <= 1}
+                                  className="flex h-7 w-7 items-center justify-center rounded border border-[#e5e7ec] text-[#6b7280] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-40"
+                                  title="上一页"
+                                >
+                                  <ChevronLeft className="h-3.5 w-3.5" />
+                                </button>
+                                <span className="min-w-[48px] text-center text-[12px] text-[#6b7280]">
+                                  {currentDocumentPage}/{documentPageCount}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDocumentPage((page) => Math.min(documentPageCount, page + 1))
+                                  }
+                                  disabled={currentDocumentPage >= documentPageCount}
+                                  className="flex h-7 w-7 items-center justify-center rounded border border-[#e5e7ec] text-[#6b7280] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-40"
+                                  title="下一页"
+                                >
+                                  <ChevronRight className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={cancelDocumentSelection}
+                                  className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[12px] text-[#3a4150] hover:bg-[#f8fafc]"
+                                >
+                                  取消
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={confirmDocumentSelection}
+                                  className="h-8 rounded-md bg-[#3b82f6] px-3 text-[12px] text-white hover:bg-[#2563eb]"
+                                >
+                                  确定
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -464,34 +664,7 @@ export function KnowledgeBaseModal({
                         0
                       )}
                     </td>
-                    <td className="py-3">
-                      {(() => {
-                        const MAX = 2;
-                        const visible = it.tags.slice(0, MAX);
-                        const overflow = it.tags.slice(MAX);
-                        return (
-                          <span className="inline-flex max-w-full items-center gap-1 overflow-hidden">
-                            {visible.map((t, i) => (
-                              <span
-                                key={i}
-                                className="inline-flex h-5 shrink-0 items-center rounded bg-[#fff7ed] px-1.5 text-[12px] text-[#f97316] border border-[#fed7aa]"
-                              >
-                                {t}
-                              </span>
-                            ))}
-                            {overflow.length > 0 && (
-                              <span
-                                title={overflow.join("、")}
-                                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-[#f1f3f6] px-1.5 text-[12px] text-[#6b7280]"
-                              >
-                                +{overflow.length}
-                              </span>
-                            )}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="py-3 text-[#3a4150]">
+                    <td className="order-6 w-28 shrink-0 py-3 text-[#3a4150]">
                       {it.updated}
                     </td>
                   </tr>

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertCircle,
   CheckCircle2,
   ChevronDown,
   FileText,
@@ -24,8 +25,13 @@ const LEVEL_OPTIONS = [
   { value: "3 - 秘密", label: "3 - 秘密", tone: "red" as const },
 ];
 
+const LEVEL_TONE: Record<string, string> = {
+  green: "border-[#a7f3d0] bg-[#ecfdf5] text-[#10b981]",
+  orange: "border-[#fed7aa] bg-[#fff7ed] text-[#f97316]",
+  red: "border-[#fecaca] bg-[#fef2f2] text-[#ef4444]",
+};
+
 const ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv";
-const DEFAULT_MAX_FILES = 5;
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,16 +39,26 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function LevelBadge({ level }: { level: string }) {
+  const opt = LEVEL_OPTIONS.find((o) => o.value === level);
+  const tone = opt?.tone ?? "green";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-[12px] leading-4 ${LEVEL_TONE[tone]}`}
+    >
+      {level}
+    </span>
+  );
+}
+
 function LevelSelect({
   value,
   onChange,
   disabled,
-  placeholder = "请选择",
 }: {
   value: string | null;
   onChange: (next: string) => void;
   disabled?: boolean;
-  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -61,13 +77,13 @@ function LevelSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
-        className={`flex h-7 min-w-[140px] items-center justify-between gap-1 rounded-md border px-2 text-[12px] leading-5 transition disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`flex h-7 min-w-[110px] items-center justify-between gap-1 rounded-md border px-2 text-[12px] leading-5 transition disabled:cursor-not-allowed disabled:opacity-60 ${
           value
             ? "border-[#e5e7ec] bg-white text-[#1f2329] hover:border-[#3b82f6]"
             : "border-[#fed7aa] bg-[#fff7ed] text-[#f97316] hover:border-[#f97316]"
         }`}
       >
-        <span className="truncate">{value ?? placeholder}</span>
+        <span className="truncate">{value ?? "请选择"}</span>
         <ChevronDown className="h-3 w-3 shrink-0" />
       </button>
       {open && (
@@ -97,40 +113,23 @@ function LevelSelect({
 export function AttachmentUploadModal({
   open,
   initialFiles,
-  maxFiles = DEFAULT_MAX_FILES,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   initialFiles: File[];
-  maxFiles?: number;
   onClose: () => void;
   onConfirm: (files: AttachmentFile[]) => void;
 }) {
-  const uploadLimit = Math.max(0, maxFiles);
   const [files, setFiles] = useState<AttachmentFile[]>([]);
-  const [batchLevel, setBatchLevel] = useState<string | null>(null);
-  const [limitTip, setLimitTip] = useState("");
   const [uploading, setUploading] = useState(false);
   const timersRef = useRef<number[]>([]);
-  const toastTimerRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const showLimitToast = (message: string) => {
-    setLimitTip(message);
-    if (toastTimerRef.current) {
-      window.clearTimeout(toastTimerRef.current);
-    }
-    toastTimerRef.current = window.setTimeout(() => {
-      setLimitTip("");
-      toastTimerRef.current = null;
-    }, 2400);
-  };
 
   useEffect(() => {
     if (!open) return;
     setFiles(
-      initialFiles.slice(0, uploadLimit).map((f, index) => ({
+      initialFiles.map((f, index) => ({
         id: `${Date.now()}-${index}-${f.name}`,
         name: f.name,
         size: f.size,
@@ -139,22 +138,12 @@ export function AttachmentUploadModal({
         progress: 0,
       })),
     );
-    setBatchLevel(null);
-    if (initialFiles.length > uploadLimit) {
-      showLimitToast(`最多上传 ${uploadLimit} 个文件，已自动保留前 ${uploadLimit} 个`);
-    } else {
-      setLimitTip("");
-    }
     setUploading(false);
     return () => {
       timersRef.current.forEach((t) => window.clearInterval(t));
       timersRef.current = [];
-      if (toastTimerRef.current) {
-        window.clearTimeout(toastTimerRef.current);
-        toastTimerRef.current = null;
-      }
     };
-  }, [open, initialFiles, uploadLimit]);
+  }, [open, initialFiles]);
 
   const allLevelsSet = files.length > 0 && files.every((f) => f.level !== null);
   const allDone = files.length > 0 && files.every((f) => f.status === "done");
@@ -162,6 +151,11 @@ export function AttachmentUploadModal({
   const totalProgress = files.length
     ? Math.round(files.reduce((sum, f) => sum + f.progress, 0) / files.length)
     : 0;
+
+  const pendingCount = useMemo(
+    () => files.filter((f) => f.level === null).length,
+    [files],
+  );
 
   const updateFile = (id: string, patch: Partial<AttachmentFile>) => {
     setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
@@ -174,14 +168,7 @@ export function AttachmentUploadModal({
 
   const handleAddMore = (incoming: FileList | null) => {
     if (!incoming || uploading) return;
-    const remaining = uploadLimit - files.length;
-    if (remaining <= 0) {
-      showLimitToast(`最多上传 ${uploadLimit} 个文件`);
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
-    const incomingFiles = Array.from(incoming);
-    const list = incomingFiles.slice(0, remaining).map((f, index) => ({
+    const list = Array.from(incoming).map((f, index) => ({
       id: `${Date.now()}-${index}-${f.name}`,
       name: f.name,
       size: f.size,
@@ -190,15 +177,13 @@ export function AttachmentUploadModal({
       progress: 0,
     }));
     setFiles((prev) => [...prev, ...list]);
-    if (incomingFiles.length > remaining) {
-      showLimitToast(`最多上传 ${uploadLimit} 个文件，本次已添加 ${remaining} 个`);
-    }
     if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleBatchLevel = (level: string) => {
-    setBatchLevel(level);
-    setFiles((prev) => prev.map((f) => ({ ...f, level })));
+    setFiles((prev) =>
+      prev.map((f) => (f.status === "pending" ? { ...f, level } : f)),
+    );
   };
 
   const startUpload = () => {
@@ -237,12 +222,6 @@ export function AttachmentUploadModal({
   };
 
   useEffect(() => {
-    if (open && allLevelsSet && !uploading && !allDone) {
-      startUpload();
-    }
-  }, [open, allLevelsSet, uploading, allDone]);
-
-  useEffect(() => {
     if (uploading && allDone) {
       setUploading(false);
     }
@@ -264,6 +243,10 @@ export function AttachmentUploadModal({
           <div className="flex items-center gap-3">
             <span className="text-[16px] font-medium leading-6 text-[#1f2329]">
               上传附件
+            </span>
+            <span className="flex items-center gap-1 text-[12px] leading-5 text-[#f97316]">
+              <AlertCircle className="h-3.5 w-3.5" />
+              请为每个文件设置涉密等级后再开始上传
             </span>
           </div>
           <button
@@ -287,28 +270,37 @@ export function AttachmentUploadModal({
               className="hidden"
               onChange={(e) => handleAddMore(e.target.files)}
             />
-            {files.length > 0 && (
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={uploading || files.length >= uploadLimit}
-                className="flex items-center gap-1 rounded-md border border-[#e5e7ec] px-2.5 py-1 text-[12px] text-[#3a4150] hover:border-[#3b82f6] hover:text-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                继续添加
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-1 rounded-md border border-[#e5e7ec] px-2.5 py-1 text-[12px] text-[#3a4150] hover:border-[#3b82f6] hover:text-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              继续添加
+            </button>
             <span className="text-[12px] text-[#9098a4]">
-              已上传 {files.length} 个文档
+              共 {files.length} 个文件
+              {pendingCount > 0 && (
+                <span className="ml-2 text-[#f97316]">
+                  待设置等级 {pendingCount}
+                </span>
+              )}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <LevelSelect
-              value={batchLevel}
-              disabled={uploading || files.length === 0}
-              placeholder="批量设置涉密等级"
-              onChange={(level) => handleBatchLevel(level)}
-            />
+            <span className="text-[12px] text-[#6b7280]">批量设置：</span>
+            {LEVEL_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleBatchLevel(opt.value)}
+                disabled={uploading || files.length === 0}
+                className={`rounded-md border px-2 py-0.5 text-[12px] leading-5 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${LEVEL_TONE[opt.tone]}`}
+              >
+                {opt.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -321,8 +313,7 @@ export function AttachmentUploadModal({
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                disabled={uploading || files.length >= uploadLimit}
-                className="mt-3 rounded-md border border-[#3b82f6] px-3 py-1.5 text-[13px] text-[#3b82f6] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-3 rounded-md border border-[#3b82f6] px-3 py-1.5 text-[13px] text-[#3b82f6] hover:bg-[#eff6ff]"
               >
                 选择文件
               </button>
@@ -366,14 +357,22 @@ export function AttachmentUploadModal({
                         上传完成
                       </div>
                     )}
+                    {file.status === "pending" && file.level === null && (
+                      <div className="mt-1 text-[11px] text-[#f97316]">
+                        请先设置涉密等级
+                      </div>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <LevelSelect
-                      value={file.level}
-                      disabled={file.status === "uploading"}
-                      placeholder="请设置涉密等级"
-                      onChange={(level) => updateFile(file.id, { level })}
-                    />
+                    {file.status === "done" ? (
+                      file.level && <LevelBadge level={file.level} />
+                    ) : (
+                      <LevelSelect
+                        value={file.level}
+                        disabled={uploading || file.status !== "pending"}
+                        onChange={(level) => updateFile(file.id, { level })}
+                      />
+                    )}
                     {file.status === "uploading" ? (
                       <Loader2 className="h-4 w-4 animate-spin text-[#3478f6]" />
                     ) : (
@@ -402,7 +401,18 @@ export function AttachmentUploadModal({
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-[#3478f6]" />
                 正在上传 {totalProgress}%
               </>
-            ) : null}
+            ) : allDone ? (
+              <>
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#10b981]" />
+                全部上传完成，可关联文件
+              </>
+            ) : (
+              <span>
+                {allLevelsSet
+                  ? "已就绪，点击开始上传"
+                  : "请为所有文件设置涉密等级"}
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button
@@ -412,6 +422,15 @@ export function AttachmentUploadModal({
             >
               取消
             </button>
+            {!allDone && (
+              <button
+                onClick={startUpload}
+                disabled={!allLevelsSet || uploading || files.length === 0}
+                className="rounded-md bg-[#3b82f6] px-4 py-1.5 text-[13px] text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {anyUploading ? "上传中..." : "开始上传"}
+              </button>
+            )}
             <button
               onClick={() => onConfirm(files)}
               disabled={!allDone}
@@ -421,12 +440,6 @@ export function AttachmentUploadModal({
             </button>
           </div>
         </div>
-
-        {limitTip && (
-          <div className="fixed right-6 top-6 z-[60] rounded-lg border border-[#fed7aa] bg-[#fff7ed] px-4 py-2 text-[13px] text-[#f97316] shadow-lg">
-            {limitTip}
-          </div>
-        )}
       </div>
     </div>
   );

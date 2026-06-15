@@ -1,17 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowUp,
   BookOpen,
   Check,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
-  ChevronUp,
   Copy,
   ExternalLink,
   FileText,
   Globe,
-  LoaderCircle,
   Link2,
   Paperclip,
   Pencil,
@@ -20,7 +17,8 @@ import {
   RotateCcw,
   Search,
   ShieldCheck,
-  Square,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   X as XIcon,
 } from "lucide-react";
@@ -50,13 +48,7 @@ type HitDocument = {
   translatedTitle: string;
   originalParagraphs: string[];
   translatedParagraphs: string[];
-};
-
-type WebReference = {
-  id: string;
-  title: string;
-  url: string;
-  source: string;
+  versions?: string[];
 };
 
 const initialConversations: Conversation[] = [
@@ -94,6 +86,7 @@ const hitDocuments: HitDocument[] = [
       "“天坛奖” is commonly translated into English as “Tiantan Award”, in which Tian Tan refers to Beijing's famous Temple of Heaven and Award means a prize.",
       "During the festival, major sections such as the opening ceremony, Beijing Film Panorama, Beijing Market, Film Carnival, and College Student Film Festival will be held.",
     ],
+    versions: ["V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10"],
   },
   {
     id: "beijing-film-original",
@@ -117,15 +110,6 @@ const hitDocuments: HitDocument[] = [
       "The Tiantan Award competition section collects outstanding films worldwide, and the jury evaluates them by artistic expression, technical completion, and cultural value.",
       "Beijing Film Panorama, Beijing Market, Film Carnival, and other activities will run in parallel, offering rich opportunities for industry exchange and public screenings.",
     ],
-  },
-];
-
-const webReferences: WebReference[] = [
-  {
-    id: "bjiff-official",
-    title: "北京国际电影节官方网站",
-    url: "https://www.bjiff.com/",
-    source: "bjiff.com",
   },
 ];
 
@@ -186,14 +170,24 @@ function SourceMarker({
   );
 }
 
-const openDocumentPreview = (doc: HitDocument) => {
-  const path = `/document-preview?doc=${encodeURIComponent(doc.id)}&hit=${encodeURIComponent(doc.hitText)}`;
-  window.open(new URL(path, window.location.origin).toString(), "_blank", "noopener,noreferrer");
-};
-
-const openExternalReference = (url: string) => {
-  window.open(new URL(url).toString(), "_blank", "noopener,noreferrer");
-};
+function HighlightText({ text, hitText }: { text: string; hitText: string }) {
+  if (!hitText || !text.includes(hitText)) return <>{text}</>;
+  const parts = text.split(hitText);
+  return (
+    <>
+      {parts.map((part, index) => (
+        <span key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 && (
+            <mark className="rounded bg-[#fff2a8] px-0.5 text-[#1f2329]">
+              {hitText}
+            </mark>
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
 
 function DocumentPreviewPage() {
   const params = new URLSearchParams(window.location.search);
@@ -290,7 +284,11 @@ function CitationPanel({
 
   const openPreview = (event: React.MouseEvent<HTMLAnchorElement>, doc: HitDocument) => {
     event.preventDefault();
-    openDocumentPreview(doc);
+    const url = `/document-preview?doc=${encodeURIComponent(doc.id)}&hit=${encodeURIComponent(doc.hitText)}`;
+    const previewWindow = window.open(url, "_blank", "noopener,noreferrer");
+    if (!previewWindow) {
+      window.location.assign(url);
+    }
   };
 
   return (
@@ -306,9 +304,7 @@ function CitationPanel({
           </button>
           <div>
             <div className="text-[15px] font-medium text-[#1f2329]">引用内容</div>
-            <div className="mt-0.5 text-[12px] text-[#9098a4]">
-              命中 {documents.length} 个文件、{webReferences.length} 个网站
-            </div>
+            <div className="mt-0.5 text-[12px] text-[#9098a4]">命中 {documents.length} 个文件</div>
           </div>
         </div>
       </div>
@@ -321,7 +317,7 @@ function CitationPanel({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => openPreview(event, doc)}
-            className="group block w-full rounded-lg border border-transparent p-3 text-left hover:border-[#dbeafe] hover:bg-[#f8fbff]"
+            className="block w-full rounded-lg border border-transparent p-3 text-left hover:border-[#dbeafe] hover:bg-[#f8fbff]"
           >
             <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[#6b7280]">
               <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -339,50 +335,17 @@ function CitationPanel({
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
               <SecurityBadge level={doc.level} />
               <LanguageTags languages={doc.languages} />
-            </div>
-            <p className="relative line-clamp-3 text-[12px] leading-5 text-[#6b7280]">
-              {doc.snippet}
-              <span className="pointer-events-none absolute left-0 top-full z-20 mt-2 hidden w-full whitespace-pre-line rounded-lg border border-[#dbeafe] bg-white p-3 text-[12px] leading-5 text-[#3a4150] shadow-lg group-hover:block">
-                {doc.originalParagraphs.join("\n")}
-              </span>
-            </p>
-          </a>
-        ))}
-
-        {webReferences.map((reference) => (
-          <a
-            key={reference.id}
-            href={reference.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(event) => {
-              event.preventDefault();
-              openExternalReference(reference.url);
-            }}
-            className="group block w-full rounded-lg border border-transparent p-3 text-left hover:border-[#dbeafe] hover:bg-[#f8fbff]"
-          >
-            <div className="mb-2 flex items-center justify-between gap-3 text-[12px] text-[#6b7280]">
-              <span className="inline-flex min-w-0 items-center gap-1.5">
-                <Globe className="h-3.5 w-3.5 shrink-0 text-[#60a5fa]" />
-                <span className="truncate">网站：{reference.source}</span>
-              </span>
-              <span className="shrink-0 rounded border border-[#dbeafe] bg-[#f8fafc] px-1.5 py-0.5 text-[11px] leading-4 text-[#6b7280]">
-                互联网
-              </span>
-            </div>
-            <div className="mb-2 flex items-start gap-2">
-              <div className="min-w-0 flex-1 text-[13px] font-medium leading-5 text-[#1f2329]">
-                {reference.title}
-              </div>
-              <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#9098a4]" />
-            </div>
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex shrink-0 items-center rounded border border-[#dbeafe] bg-[#eff6ff] px-1.5 py-0.5 text-[12px] leading-4 text-[#2563eb]">
-                {reference.source}
-              </span>
+              {doc.versions && doc.versions.length > 1 && (
+                <span
+                  title={`历史版本：${doc.versions.join("、")}`}
+                  className="inline-flex shrink-0 items-center rounded border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[12px] leading-4 text-[#2563eb]"
+                >
+                  最新版本 {doc.versions.at(-1)}
+                </span>
+              )}
             </div>
             <p className="line-clamp-3 text-[12px] leading-5 text-[#6b7280]">
-              来自互联网公开页面，可点击新开浏览器页面查看原始网站内容。
+              <HighlightText text={doc.snippet} hitText={doc.hitText} />
             </p>
           </a>
         ))}
@@ -404,14 +367,9 @@ export default function App() {
   const [editingTitle, setEditingTitle] = useState("");
   const [draftMode, setDraftMode] = useState(false);
   const [citationOpen, setCitationOpen] = useState(false);
-  const [citationExpanded, setCitationExpanded] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<AttachmentFile[]>([]);
-  const [sentQuestion, setSentQuestion] = useState("天坛奖怎么翻译");
-  const [sentAttachments, setSentAttachments] = useState<AttachmentFile[]>([]);
-  const [isAnswering, setIsAnswering] = useState(false);
-  const [answeringConversationId, setAnsweringConversationId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeConv = draftMode ? undefined : conversations.find((c) => c.active);
@@ -425,15 +383,6 @@ export default function App() {
     [conversations, historyQuery],
   );
 
-  useEffect(() => {
-    if (!isAnswering) return undefined;
-    const timer = window.setTimeout(() => {
-      setIsAnswering(false);
-      setAnsweringConversationId(null);
-    }, 3200);
-    return () => window.clearTimeout(timer);
-  }, [isAnswering]);
-
   if (window.location.pathname === "/document-preview") {
     return <DocumentPreviewPage />;
   }
@@ -443,7 +392,6 @@ export default function App() {
     setConversations((prev) => prev.map((c) => ({ ...c, active: false })));
     setInput("");
     setCitationOpen(false);
-    setCitationExpanded(false);
   };
 
   const handleSelectConv = (id: string) => {
@@ -454,25 +402,17 @@ export default function App() {
   const handleSend = () => {
     const text = input.trim();
     if (!text) return;
-    let runningConversationId = activeConv?.id ?? null;
     if (draftMode) {
       const id = `new-${Date.now()}`;
       const title = text.slice(0, 20);
-      runningConversationId = id;
       setConversations((prev) => [
         { id, title, group: "今天", active: true },
         ...prev.map((c) => ({ ...c, active: false })),
       ]);
       setDraftMode(false);
     }
-    setSentQuestion(text);
-    setSentAttachments([...attachedFiles]);
-    setIsAnswering(true);
-    setAnsweringConversationId(runningConversationId);
-    setCitationOpen(false);
-    setCitationExpanded(false);
+    setCitationOpen(true);
     setInput("");
-    setAttachedFiles([]);
   };
 
   const handleDeleteConv = (id: string, e: React.MouseEvent) => {
@@ -483,10 +423,6 @@ export default function App() {
       if (wasActive && next.length > 0) next[0].active = true;
       return next;
     });
-    if (answeringConversationId === id) {
-      setIsAnswering(false);
-      setAnsweringConversationId(null);
-    }
   };
 
   const toggleSelected = (id: string) => {
@@ -504,10 +440,6 @@ export default function App() {
       if (!next.some((c) => c.active) && next.length > 0) next[0].active = true;
       return next;
     });
-    if (answeringConversationId && selectedIds.has(answeringConversationId)) {
-      setIsAnswering(false);
-      setAnsweringConversationId(null);
-    }
     setSelectedIds(new Set());
     setSelectMode(false);
   };
@@ -627,16 +559,8 @@ export default function App() {
                           {selectedIds.has(c.id) && <Check className="h-3 w-3 text-white" />}
                         </span>
                       ) : (
-                        <span
-                          className="flex h-4 w-4 items-center justify-center"
-                          aria-label={c.id === answeringConversationId && isAnswering ? "回答生成中" : undefined}
-                          title={c.id === answeringConversationId && isAnswering ? "回答生成中" : undefined}
-                        >
-                          {c.id === answeringConversationId && isAnswering ? (
-                            <LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#3478f6]" />
-                          ) : (
-                            <span className="block h-2 w-2 rounded-sm bg-[#60a5fa]" />
-                          )}
+                        <span className="flex h-4 w-4 items-center justify-center">
+                          <span className="block h-2 w-2 rounded-sm bg-[#60a5fa]" />
                         </span>
                       )}
                       {editingId === c.id ? (
@@ -694,6 +618,7 @@ export default function App() {
                 <BookOpen className="h-3 w-3" />
               </span>
               <span className="text-[14px]">{activeConv?.title ?? "知识库问答"}</span>
+              <span className="text-[12px] text-[#c0c6d0]">企业知识库问答</span>
             </div>
             <button onClick={handleNewChat} className="flex items-center gap-1.5 text-[13px] text-[#6b7280] hover:text-[#3478f6]">
               <RotateCcw className="h-3.5 w-3.5" />
@@ -708,143 +633,58 @@ export default function App() {
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#7c8cff] to-[#5b6cf5] text-white">
                 <BookOpen className="h-6 w-6" />
               </div>
-              <div className="text-[16px] text-[#1f2329]">与小译一起，开启新的对话</div>
+              <div className="text-[16px] text-[#1f2329]">开启新的对话</div>
             </div>
           ) : (
             <div className="mx-auto flex max-w-[820px] flex-col gap-6">
               <div className="flex justify-end">
-                <div className="flex max-w-[70%] flex-col items-end gap-2">
-                  {sentAttachments.length > 0 && (
-                    <div className="flex flex-col items-end gap-1.5">
-                      {sentAttachments.map((file) => (
-                        <span
-                          key={file.id}
-                          className="inline-flex max-w-[360px] items-center gap-1.5 rounded-md border border-[#dbeafe] bg-[#eff6ff] px-2 py-1 text-[12px] text-[#3a4150]"
-                          title={file.name}
-                        >
-                          <FileText className="h-3.5 w-3.5 shrink-0 text-[#60a5fa]" />
-                          <span className="min-w-0 truncate">{file.name}</span>
-                          {file.level && (
-                            <span className="shrink-0 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1 text-[11px] text-[#10b981]">
-                              {file.level}
-                            </span>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="rounded-2xl bg-[#f3f4f7] px-4 py-2.5 text-[14px]">
-                    {sentQuestion}
-                  </div>
+                <div className="rounded-2xl bg-[#f3f4f7] px-4 py-2.5 text-[14px]">
+                  天坛奖怎么翻译
                 </div>
               </div>
 
               <div className="flex gap-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7fc4ff] to-[#5b9bff] text-white shadow-[0_0_14px_rgba(52,120,246,0.38)]">
-                  <span className="flex items-center gap-0.5">
-                    <span className="h-1 w-1 rounded-full bg-white" />
-                    <span className="h-1 w-1 rounded-full bg-white" />
-                  </span>
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7c8cff] to-[#5b6cf5] text-white">
+                  <BookOpen className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  {isAnswering ? (
-                    <div className="flex w-full items-center gap-2 rounded-lg bg-[#f8fafc] px-3 py-3 text-[14px] text-[#3a4150]">
-                      <LoaderCircle className="h-4 w-4 animate-spin text-[#5b9bff]" />
-                      <span>回答中...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setCitationExpanded((value) => !value)}
-                        className="flex w-full items-center justify-between rounded-lg bg-[#f8fafc] px-3 py-2 text-left text-[13px] text-[#3a4150] hover:bg-[#f1f5f9]"
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-[#3478f6]" />
-                          回答完成，基于已有信息匹配到 {hitDocuments.length + webReferences.length} 个内容：
-                        </span>
-                        {citationExpanded ? (
-                          <ChevronUp className="h-4 w-4 text-[#6b7280]" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-[#6b7280]" />
-                        )}
-                      </button>
+                  <button
+                    type="button"
+                    onClick={() => setCitationOpen(true)}
+                    className="mb-4 flex w-full items-center justify-between rounded-lg bg-[#f8fafc] px-3 py-2 text-left text-[13px] text-[#3a4150] hover:bg-[#f1f5f9]"
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#3478f6]" />
+                      回答完成，基于已有信息匹配到 {hitDocuments.length} 个内容：
+                    </span>
+                    <span className="text-[#9098a4]">⌄</span>
+                  </button>
 
-                      {citationExpanded && (
-                        <div className="mb-4 rounded-b-lg bg-[#f8fafc] px-3 pb-3 pt-1">
-                          <div className="flex flex-col gap-2">
-                            {hitDocuments.map((doc, index) => (
-                              <a
-                                key={doc.id}
-                                href={`/document-preview?doc=${encodeURIComponent(doc.id)}&hit=${encodeURIComponent(doc.hitText)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  openDocumentPreview(doc);
-                                }}
-                                className="group flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-[13px] text-[#2563eb] hover:bg-[#eff6ff]"
-                                title={doc.name}
-                              >
-                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#dbeafe] px-1 text-[11px] text-[#3478f6]">
-                                  {index + 1}
-                                </span>
-                                <FileText className="h-3.5 w-3.5 shrink-0 text-[#60a5fa]" />
-                                <span className="min-w-0 truncate underline-offset-2 group-hover:underline">
-                                  {doc.name}
-                                </span>
-                                <SecurityBadge level={doc.level} />
-                              </a>
-                            ))}
+                  <div className="space-y-3 text-[14px] leading-7 text-[#1f2329]">
+                    <p>
+                      “天坛奖”在英文中通常翻译为 <strong>"Tiantan Award"</strong>，其中 <em>Tian Tan</em> 指北京著名地标天坛，Award 表示奖项。
+                      <SourceMarker count={hitDocuments.length} onClick={() => setCitationOpen(true)} />
+                    </p>
+                    <p>
+                      如果是正式电影节语境，建议保留专名拼音并使用首字母大写；首次出现时可补充说明为 Beijing International Film Festival 的竞赛奖项。
+                      <SourceMarker count={1} onClick={() => setCitationOpen(true)} />
+                    </p>
+                  </div>
 
-                            {webReferences.map((reference, index) => (
-                              <a
-                                key={reference.id}
-                                href={reference.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  openExternalReference(reference.url);
-                                }}
-                                className="group flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-[13px] text-[#2563eb] hover:bg-[#eff6ff]"
-                                title={reference.url}
-                              >
-                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#dbeafe] px-1 text-[11px] text-[#3478f6]">
-                                  {hitDocuments.length + index + 1}
-                                </span>
-                                <Globe className="h-3.5 w-3.5 shrink-0 text-[#60a5fa]" />
-                                <span className="min-w-0 truncate underline-offset-2 group-hover:underline">
-                                  {reference.title}
-                                </span>
-                                <span className="shrink-0 rounded border border-[#dbeafe] bg-white px-1.5 py-0.5 text-[11px] leading-4 text-[#6b7280]">
-                                  {reference.source}
-                                </span>
-                                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#9098a4]" />
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="space-y-3 text-[14px] leading-7 text-[#1f2329]">
-                        <p>
-                          “天坛奖”在英文中通常翻译为 <strong>"Tiantan Award"</strong>，其中 <em>Tian Tan</em> 指北京著名地标天坛，Award 表示奖项。
-                          <SourceMarker count={hitDocuments.length} onClick={() => setCitationOpen(true)} />
-                        </p>
-                        <p>
-                          如果是正式电影节语境，建议保留专名拼音并使用首字母大写；首次出现时可补充说明为 Beijing International Film Festival 的竞赛奖项。
-                          <SourceMarker count={1} onClick={() => setCitationOpen(true)} />
-                        </p>
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-3 text-[#9098a4]">
-                        <button className="rounded p-1 hover:bg-[#f1f3f6] hover:text-[#3478f6]" title="复制">
-                          <Copy className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </>
-                  )}
+                  <div className="mt-4 flex items-center gap-3 text-[#9098a4]">
+                    <button className="rounded p-1 hover:bg-[#f1f3f6] hover:text-[#3478f6]" title="复制">
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                    <button className="rounded p-1 hover:bg-[#f1f3f6] hover:text-[#3478f6]" title="重新生成">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </button>
+                    <button className="rounded p-1 hover:bg-[#f1f3f6] hover:text-[#3478f6]" title="有帮助">
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button className="rounded p-1 hover:bg-[#f1f3f6] hover:text-[#ef4444]" title="没帮助">
+                      <ThumbsDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -852,139 +692,108 @@ export default function App() {
         </div>
 
         <div className="px-6 pb-6">
-          {isAnswering ? (
-            <div className="mx-auto flex h-[58px] max-w-[820px] items-center justify-between rounded-2xl border border-[#eef0f3] bg-white px-4 shadow-[0_10px_32px_rgba(20,20,43,0.08)]">
-              <div className="flex items-center gap-3 text-[14px] text-[#3a4150]">
-                <span className="flex items-center gap-1">
-                  <span className="h-1 w-1 rounded-full bg-[#111827]" />
-                  <span className="h-1 w-1 rounded-full bg-[#111827]" />
-                  <span className="h-1 w-1 rounded-full bg-[#111827]" />
-                </span>
-                <span>任务运行中</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsAnswering(false);
-                  setAnsweringConversationId(null);
-                }}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2f343b] text-white hover:bg-[#111827]"
-                title="停止生成"
-              >
-                <Square className="h-3.5 w-3.5 fill-current" />
-              </button>
-            </div>
-          ) : (
-            <div className="mx-auto max-w-[820px] rounded-2xl border border-[#e5e7ec] bg-white p-3 shadow-[0_2px_12px_rgba(20,20,43,0.04)]">
-              {attachedFiles.length > 0 && (
-                <div className="mb-2 flex flex-wrap gap-2 border-b border-[#f1f3f6] pb-2">
-                  {attachedFiles.map((file) => (
-                    <span
-                      key={file.id}
-                      className="group inline-flex max-w-[260px] items-center gap-1.5 rounded-md border border-[#e5e7ec] bg-[#f8fafc] px-2 py-1 text-[12px] text-[#3a4150]"
-                      title={file.name}
-                    >
-                      <FileText className="h-3.5 w-3.5 shrink-0 text-[#60a5fa]" />
-                      <span className="min-w-0 truncate">{file.name}</span>
-                      {file.level && (
-                        <span className="shrink-0 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1 text-[11px] text-[#10b981]">
-                          {file.level}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setAttachedFiles((prev) =>
-                            prev.filter((f) => f.id !== file.id),
-                          )
-                        }
-                        className="rounded p-0.5 text-[#9098a4] hover:bg-white hover:text-[#ef4444]"
-                        title="移除"
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value.slice(0, 5000))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="在这里向小译提问~"
-                rows={2}
-                className="w-full resize-none bg-transparent px-2 py-1 text-[14px] outline-none placeholder:text-[#9098a4]"
-              />
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv"
-                    className="hidden"
-                    onChange={(e) => {
-                      const list = e.target.files;
-                      if (!list || list.length === 0) return;
-                      setPendingFiles(Array.from(list));
-                      setAttachmentOpen(true);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={attachedFiles.length >= 5}
-                    className="rounded-md p-1.5 text-[#6b7280] hover:bg-[#f1f3f6] disabled:cursor-not-allowed disabled:opacity-50"
-                    title={attachedFiles.length >= 5 ? "最多上传5个文件" : "上传附件"}
+          <div className="mx-auto max-w-[820px] rounded-2xl border border-[#e5e7ec] bg-white p-3 shadow-[0_2px_12px_rgba(20,20,43,0.04)]">
+            {attachedFiles.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2 border-b border-[#f1f3f6] pb-2">
+                {attachedFiles.map((file) => (
+                  <span
+                    key={file.id}
+                    className="group inline-flex max-w-[260px] items-center gap-1.5 rounded-md border border-[#e5e7ec] bg-[#f8fafc] px-2 py-1 text-[12px] text-[#3a4150]"
+                    title={file.name}
                   >
-                    <Paperclip className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setKbOpen(true)}
-                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] ${
-                      kbCount > 0
-                        ? "border-[#93c5fd] bg-[#eff6ff] text-[#2563eb]"
-                        : "border-[#e5e7ec] text-[#3a4150] hover:border-[#3478f6] hover:text-[#3478f6]"
-                    }`}
-                  >
-                    <BookOpen className="h-3.5 w-3.5" />
-                    知识库
-                    {kbCount > 0 && (
-                      <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3478f6] px-1 text-[11px] text-white">
-                        {kbCount}
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-[#60a5fa]" />
+                    <span className="min-w-0 truncate">{file.name}</span>
+                    {file.level && (
+                      <span className="shrink-0 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1 text-[11px] text-[#10b981]">
+                        {file.level}
                       </span>
                     )}
-                  </button>
-                  <button
-                    onClick={() => setWebOn((v) => !v)}
-                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] ${
-                      webOn
-                        ? "border-[#93c5fd] bg-[#eff6ff] text-[#2563eb]"
-                        : "border-[#e5e7ec] text-[#3a4150] hover:border-[#3478f6] hover:text-[#3478f6]"
-                    }`}
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                    互联网
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[12px] text-[#9098a4]">{input.length}/5000</span>
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim()}
-                    className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e5e7ec] text-white disabled:opacity-60 enabled:bg-gradient-to-br enabled:from-[#7c6cff] enabled:to-[#6b59f5]"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setAttachedFiles((prev) =>
+                          prev.filter((f) => f.id !== file.id),
+                        )
+                      }
+                      className="rounded p-0.5 text-[#9098a4] hover:bg-white hover:text-[#ef4444]"
+                      title="移除"
+                    >
+                      <XIcon className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value.slice(0, 5000))}
+              placeholder="你可以向我提问我所知道的一切"
+              rows={2}
+              className="w-full resize-none bg-transparent px-2 py-1 text-[14px] outline-none placeholder:text-[#9098a4]"
+            />
+            <div className="mt-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const list = e.target.files;
+                    if (!list || list.length === 0) return;
+                    setPendingFiles(Array.from(list));
+                    setAttachmentOpen(true);
+                    if (fileInputRef.current) fileInputRef.current.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md p-1.5 text-[#6b7280] hover:bg-[#f1f3f6]"
+                  title="上传附件"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setKbOpen(true)}
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] ${
+                    kbCount > 0
+                      ? "border-[#93c5fd] bg-[#eff6ff] text-[#2563eb]"
+                      : "border-[#e5e7ec] text-[#3a4150] hover:border-[#3478f6] hover:text-[#3478f6]"
+                  }`}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  知识库
+                  {kbCount > 0 && (
+                    <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3478f6] px-1 text-[11px] text-white">
+                      {kbCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setWebOn((v) => !v)}
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] ${
+                    webOn
+                      ? "border-[#93c5fd] bg-[#eff6ff] text-[#2563eb]"
+                      : "border-[#e5e7ec] text-[#3a4150] hover:border-[#3478f6] hover:text-[#3478f6]"
+                  }`}
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  互联网
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] text-[#9098a4]">{input.length}/5000</span>
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim()}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e5e7ec] text-white disabled:opacity-60 enabled:bg-gradient-to-br enabled:from-[#7c6cff] enabled:to-[#6b59f5]"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </main>
 
@@ -999,13 +808,12 @@ export default function App() {
       <AttachmentUploadModal
         open={attachmentOpen}
         initialFiles={pendingFiles}
-        maxFiles={5 - attachedFiles.length}
         onClose={() => {
           setAttachmentOpen(false);
           setPendingFiles([]);
         }}
         onConfirm={(files) => {
-          setAttachedFiles((prev) => [...prev, ...files].slice(0, 5));
+          setAttachedFiles((prev) => [...prev, ...files]);
           setAttachmentOpen(false);
           setPendingFiles([]);
         }}
