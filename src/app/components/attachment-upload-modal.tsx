@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  AlertCircle,
   CheckCircle2,
   ChevronDown,
   FileText,
-  Loader2,
   Trash2,
   Upload,
   X,
@@ -25,30 +23,12 @@ const LEVEL_OPTIONS = [
   { value: "3 - 秘密", label: "3 - 秘密", tone: "red" as const },
 ];
 
-const LEVEL_TONE: Record<string, string> = {
-  green: "border-[#a7f3d0] bg-[#ecfdf5] text-[#10b981]",
-  orange: "border-[#fed7aa] bg-[#fff7ed] text-[#f97316]",
-  red: "border-[#fecaca] bg-[#fef2f2] text-[#ef4444]",
-};
-
 const ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv";
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function LevelBadge({ level }: { level: string }) {
-  const opt = LEVEL_OPTIONS.find((o) => o.value === level);
-  const tone = opt?.tone ?? "green";
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-[12px] leading-4 ${LEVEL_TONE[tone]}`}
-    >
-      {level}
-    </span>
-  );
 }
 
 function LevelSelect({
@@ -79,7 +59,7 @@ function LevelSelect({
         onClick={() => setOpen((v) => !v)}
         className={`flex h-7 min-w-[110px] items-center justify-between gap-1 rounded-md border px-2 text-[12px] leading-5 transition disabled:cursor-not-allowed disabled:opacity-60 ${
           value
-            ? "border-[#e5e7ec] bg-white text-[#1f2329] hover:border-[#3b82f6]"
+            ? "border-[#e5e7ec] bg-white text-[#1f2329] hover:border-[#00c6f3]"
             : "border-[#fed7aa] bg-[#fff7ed] text-[#f97316] hover:border-[#f97316]"
         }`}
       >
@@ -97,7 +77,7 @@ function LevelSelect({
                 setOpen(false);
               }}
               className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-[12px] leading-5 hover:bg-[#f1f3f6] ${
-                value === opt.value ? "text-[#3b82f6]" : "text-[#3a4150]"
+                value === opt.value ? "text-[#00aeda]" : "text-[#3a4150]"
               }`}
             >
               <span>{opt.label}</span>
@@ -115,19 +95,55 @@ export function AttachmentUploadModal({
   initialFiles,
   onClose,
   onConfirm,
+  embedded = false,
 }: {
   open: boolean;
   initialFiles: File[];
   onClose: () => void;
   onConfirm: (files: AttachmentFile[]) => void;
+  embedded?: boolean;
 }) {
   const [files, setFiles] = useState<AttachmentFile[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const timersRef = useRef<number[]>([]);
+  const [batchLevel, setBatchLevel] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const timersRef = useRef<Record<string, number>>({});
+
+  const clearUploadTimer = (id: string) => {
+    const timer = timersRef.current[id];
+    if (timer) {
+      window.clearInterval(timer);
+      delete timersRef.current[id];
+    }
+  };
+
+  const clearAllUploadTimers = () => {
+    Object.values(timersRef.current).forEach((timer) => window.clearInterval(timer));
+    timersRef.current = {};
+  };
+
+  const startUpload = (id: string) => {
+    clearUploadTimer(id);
+    timersRef.current[id] = window.setInterval(() => {
+      setFiles((prev) =>
+        prev.map((file) => {
+          if (file.id !== id) return file;
+          const nextProgress = Math.min(100, file.progress + 12 + Math.round(Math.random() * 10));
+          if (nextProgress >= 100) {
+            clearUploadTimer(id);
+            return { ...file, status: "done", progress: 100 };
+          }
+          return { ...file, status: "uploading", progress: nextProgress };
+        }),
+      );
+    }, 320);
+  };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      clearAllUploadTimers();
+      return;
+    }
+    clearAllUploadTimers();
     setFiles(
       initialFiles.map((f, index) => ({
         id: `${Date.now()}-${index}-${f.name}`,
@@ -138,129 +154,96 @@ export function AttachmentUploadModal({
         progress: 0,
       })),
     );
-    setUploading(false);
-    return () => {
-      timersRef.current.forEach((t) => window.clearInterval(t));
-      timersRef.current = [];
-    };
+    setBatchLevel(null);
+    return clearAllUploadTimers;
   }, [open, initialFiles]);
 
-  const allLevelsSet = files.length > 0 && files.every((f) => f.level !== null);
   const allDone = files.length > 0 && files.every((f) => f.status === "done");
-  const anyUploading = files.some((f) => f.status === "uploading");
-  const totalProgress = files.length
-    ? Math.round(files.reduce((sum, f) => sum + f.progress, 0) / files.length)
-    : 0;
-
-  const pendingCount = useMemo(
-    () => files.filter((f) => f.level === null).length,
-    [files],
-  );
-
-  const updateFile = (id: string, patch: Partial<AttachmentFile>) => {
-    setFiles((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-  };
-
   const handleRemove = (id: string) => {
-    if (uploading) return;
+    clearUploadTimer(id);
     setFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
   const handleAddMore = (incoming: FileList | null) => {
-    if (!incoming || uploading) return;
+    if (!incoming) return;
+    const defaultLevel = batchLevel ?? files.find((file) => file.level)?.level ?? null;
     const list = Array.from(incoming).map((f, index) => ({
       id: `${Date.now()}-${index}-${f.name}`,
       name: f.name,
       size: f.size,
-      level: null as string | null,
-      status: "pending" as const,
-      progress: 0,
+      level: defaultLevel,
+      status: defaultLevel ? ("uploading" as const) : ("pending" as const),
+      progress: defaultLevel ? 8 : 0,
     }));
     setFiles((prev) => [...prev, ...list]);
+    if (defaultLevel) list.forEach((file) => startUpload(file.id));
     if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleBatchLevel = (level: string) => {
+    setBatchLevel(level);
+    const idsToUpload = files
+      .filter((file) => file.status === "pending")
+      .map((file) => file.id);
     setFiles((prev) =>
-      prev.map((f) => (f.status === "pending" ? { ...f, level } : f)),
+      prev.map((f) =>
+        idsToUpload.includes(f.id)
+          ? { ...f, level, status: "uploading", progress: 8 }
+          : f,
+      ),
     );
+    idsToUpload.forEach(startUpload);
   };
 
-  const startUpload = () => {
-    if (!allLevelsSet || uploading) return;
-    setUploading(true);
-    timersRef.current.forEach((t) => window.clearInterval(t));
-    timersRef.current = [];
-
-    files.forEach((file) => {
-      if (file.status === "done") return;
-      updateFile(file.id, { status: "uploading", progress: 0 });
-      const step = 6 + Math.floor(Math.random() * 12);
-      const timer = window.setInterval(() => {
-        setFiles((prev) => {
-          const target = prev.find((f) => f.id === file.id);
-          if (!target) return prev;
-          const next = Math.min(100, target.progress + step);
-          const isDone = next >= 100;
-          if (isDone) {
-            window.clearInterval(timer);
-            timersRef.current = timersRef.current.filter((t) => t !== timer);
-          }
-          return prev.map((f) =>
-            f.id === file.id
-              ? {
-                  ...f,
-                  progress: next,
-                  status: isDone ? "done" : "uploading",
-                }
-              : f,
-          );
-        });
-      }, 280);
-      timersRef.current.push(timer);
-    });
+  const handleFileLevel = (id: string, level: string) => {
+    setBatchLevel((current) => current ?? level);
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === id
+          ? { ...f, level, status: "uploading", progress: 8 }
+          : f,
+      ),
+    );
+    startUpload(id);
   };
-
-  useEffect(() => {
-    if (uploading && allDone) {
-      setUploading(false);
-    }
-  }, [uploading, allDone]);
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      onClick={() => !uploading && onClose()}
+      className={
+        embedded
+          ? "absolute inset-0 z-50 flex items-center justify-center bg-white/70 p-3 backdrop-blur-[1px]"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      }
+      onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-[720px] flex-col rounded-xl bg-white shadow-2xl"
+        className={
+          embedded
+            ? "flex max-h-[calc(100%-24px)] w-full max-w-[680px] flex-col rounded-lg bg-white shadow-2xl"
+            : "flex max-h-[80vh] w-[720px] flex-col rounded-xl bg-white shadow-2xl"
+        }
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5">
-          <div className="flex items-center gap-3">
+        <div className={embedded ? "flex items-start justify-between gap-3 px-4 pt-4" : "flex items-center justify-between px-6 pt-5"}>
+          <div className={embedded ? "min-w-0" : "flex items-center gap-3"}>
             <span className="text-[16px] font-medium leading-6 text-[#1f2329]">
               上传附件
-            </span>
-            <span className="flex items-center gap-1 text-[12px] leading-5 text-[#f97316]">
-              <AlertCircle className="h-3.5 w-3.5" />
-              请为每个文件设置涉密等级后再开始上传
             </span>
           </div>
           <button
             onClick={onClose}
-            disabled={uploading}
             className="rounded p-1 text-[#9098a4] hover:bg-[#f1f3f6] disabled:cursor-not-allowed disabled:opacity-50"
-            title={uploading ? "上传中无法关闭" : "关闭"}
+            title="关闭"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Toolbar */}
-        <div className="mt-4 flex items-center justify-between border-b border-[#eef0f3] px-6 pb-3">
+        <div className={embedded ? "mt-4 flex flex-col gap-3 border-b border-[#eef0f3] px-4 pb-3" : "mt-4 flex items-center justify-between border-b border-[#eef0f3] px-6 pb-3"}>
           <div className="flex items-center gap-3 text-[13px] text-[#3a4150]">
             <input
               ref={inputRef}
@@ -270,42 +253,28 @@ export function AttachmentUploadModal({
               className="hidden"
               onChange={(e) => handleAddMore(e.target.files)}
             />
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              disabled={uploading}
-              className="flex items-center gap-1 rounded-md border border-[#e5e7ec] px-2.5 py-1 text-[12px] text-[#3a4150] hover:border-[#3b82f6] hover:text-[#3b82f6] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              继续添加
-            </button>
-            <span className="text-[12px] text-[#9098a4]">
-              共 {files.length} 个文件
-              {pendingCount > 0 && (
-                <span className="ml-2 text-[#f97316]">
-                  待设置等级 {pendingCount}
-                </span>
-              )}
-            </span>
+            {files.length > 0 && (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="flex items-center gap-1 rounded-md border border-[#e5e7ec] px-2.5 py-1 text-[12px] text-[#3a4150] hover:border-[#00c6f3] hover:text-[#00aeda] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                继续添加
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[12px] text-[#6b7280]">批量设置：</span>
-            {LEVEL_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => handleBatchLevel(opt.value)}
-                disabled={uploading || files.length === 0}
-                className={`rounded-md border px-2 py-0.5 text-[12px] leading-5 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${LEVEL_TONE[opt.tone]}`}
-              >
-                {opt.label}
-              </button>
-            ))}
+            <LevelSelect
+              value={batchLevel}
+              onChange={handleBatchLevel}
+            />
           </div>
         </div>
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto px-6 py-3">
+        <div className={embedded ? "flex-1 overflow-y-auto px-4 py-3" : "flex-1 overflow-y-auto px-6 py-3"}>
           {files.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Upload className="mb-2 h-8 w-8 text-[#cbd0d8]" />
@@ -313,7 +282,7 @@ export function AttachmentUploadModal({
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="mt-3 rounded-md border border-[#3b82f6] px-3 py-1.5 text-[13px] text-[#3b82f6] hover:bg-[#eff6ff]"
+                className="mt-3 rounded-md border border-[#00c6f3] px-3 py-1.5 text-[13px] text-[#00aeda] hover:bg-[#e8f9fe] disabled:cursor-not-allowed disabled:border-[#e5e7ec] disabled:text-[#c0c6d0] disabled:hover:bg-white"
               >
                 选择文件
               </button>
@@ -342,11 +311,11 @@ export function AttachmentUploadModal({
                       <div className="mt-1.5 flex items-center gap-2">
                         <div className="h-1 flex-1 overflow-hidden rounded-full bg-[#f1f3f6]">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#3da0ff] to-[#3478f6] transition-all"
+                            className="h-full rounded-full bg-[#00befa] transition-all"
                             style={{ width: `${file.progress}%` }}
                           />
                         </div>
-                        <span className="text-[11px] text-[#6b7280]">
+                        <span className="w-8 text-right text-[11px] text-[#6b7280]">
                           {file.progress}%
                         </span>
                       </div>
@@ -357,35 +326,21 @@ export function AttachmentUploadModal({
                         上传完成
                       </div>
                     )}
-                    {file.status === "pending" && file.level === null && (
-                      <div className="mt-1 text-[11px] text-[#f97316]">
-                        请先设置涉密等级
-                      </div>
-                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    {file.status === "done" ? (
-                      file.level && <LevelBadge level={file.level} />
-                    ) : (
-                      <LevelSelect
-                        value={file.level}
-                        disabled={uploading || file.status !== "pending"}
-                        onChange={(level) => updateFile(file.id, { level })}
-                      />
-                    )}
-                    {file.status === "uploading" ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-[#3478f6]" />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(file.id)}
-                        disabled={uploading}
-                        title="移除"
-                        className="rounded p-1 text-[#9098a4] hover:bg-[#f1f3f6] hover:text-[#ef4444] disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    <LevelSelect
+                      value={file.level}
+                      onChange={(level) => handleFileLevel(file.id, level)}
+                      disabled={file.status === "uploading" || file.status === "done"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(file.id)}
+                      title="移除"
+                      className="rounded p-1 text-[#9098a4] hover:bg-[#f1f3f6] hover:text-[#ef4444] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </li>
               ))}
@@ -394,51 +349,20 @@ export function AttachmentUploadModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-[#eef0f3] px-6 py-3">
-          <div className="flex items-center gap-2 text-[12px] text-[#6b7280]">
-            {anyUploading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-[#3478f6]" />
-                正在上传 {totalProgress}%
-              </>
-            ) : allDone ? (
-              <>
-                <CheckCircle2 className="h-3.5 w-3.5 text-[#10b981]" />
-                全部上传完成，可关联文件
-              </>
-            ) : (
-              <span>
-                {allLevelsSet
-                  ? "已就绪，点击开始上传"
-                  : "请为所有文件设置涉密等级"}
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
+        <div className={embedded ? "flex justify-end gap-2 border-t border-[#eef0f3] px-4 py-3" : "flex justify-end gap-2 border-t border-[#eef0f3] px-6 py-3"}>
             <button
               onClick={onClose}
-              disabled={uploading}
               className="rounded-md border border-[#e5e7ec] px-4 py-1.5 text-[13px] text-[#3a4150] hover:bg-[#f1f3f6] disabled:cursor-not-allowed disabled:opacity-50"
             >
               取消
             </button>
-            {!allDone && (
-              <button
-                onClick={startUpload}
-                disabled={!allLevelsSet || uploading || files.length === 0}
-                className="rounded-md bg-[#3b82f6] px-4 py-1.5 text-[13px] text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {anyUploading ? "上传中..." : "开始上传"}
-              </button>
-            )}
             <button
               onClick={() => onConfirm(files)}
               disabled={!allDone}
-              className="rounded-md bg-gradient-to-r from-[#3da0ff] to-[#3478f6] px-4 py-1.5 text-[13px] text-white shadow-sm hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-md bg-[#00befa] px-4 py-1.5 text-[13px] text-white shadow-sm hover:bg-[#00b4fa] disabled:cursor-not-allowed disabled:opacity-50"
             >
               确定
             </button>
-          </div>
         </div>
       </div>
     </div>

@@ -195,10 +195,12 @@ export function KnowledgeBaseModal({
   open,
   onClose,
   onConfirm,
+  embedded = false,
 }: {
   open: boolean;
   onClose: () => void;
   onConfirm?: (count: number) => void;
+  embedded?: boolean;
 }) {
   const [tab, setTab] = useState<"mine" | "company">("mine");
   const [selected, setSelected] = useState<Set<string>>(
@@ -270,23 +272,205 @@ export function KnowledgeBaseModal({
       );
     })
     .sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
+  const openDocumentItem = filtered.find((item) => item.id === openDocumentId);
+
+  const renderDocumentPanel = (it: Item, panelMode: "popover" | "embedded") => {
+    const normalizedDocumentQuery = documentQuery.trim().toLowerCase();
+    const filteredDocuments = it.documents.filter((document) =>
+      document.name.toLowerCase().includes(normalizedDocumentQuery),
+    );
+    const documentPageCount = Math.max(
+      1,
+      Math.ceil(filteredDocuments.length / DOCUMENT_PAGE_SIZE),
+    );
+    const currentDocumentPage = Math.min(documentPage, documentPageCount);
+    const pagedDocuments = filteredDocuments.slice(
+      (currentDocumentPage - 1) * DOCUMENT_PAGE_SIZE,
+      currentDocumentPage * DOCUMENT_PAGE_SIZE,
+    );
+    const draftDocumentCount = it.documents.filter((document) =>
+      draftDocumentKeys.has(`${it.id}:${document.name}`),
+    ).length;
+
+    return (
+      <div
+        role="dialog"
+        aria-label={`${it.name}的关联文档`}
+        className={
+          panelMode === "embedded"
+            ? "absolute inset-x-4 bottom-16 top-[104px] z-30 flex flex-col rounded-lg border border-[#e5e7ec] bg-white p-3 text-[#1f2329] shadow-xl"
+            : `absolute right-0 top-7 z-20 w-[440px] rounded-lg border border-[#e5e7ec] bg-white p-3 text-[#1f2329] shadow-xl ${
+                openDocumentId === it.id ? "block" : "hidden"
+              }`
+        }
+      >
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-[13px] font-medium leading-5">
+            关联文档
+          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="text-[12px] text-[#6b7280]">
+              {draftDocumentCount}/{it.documents.length}
+            </span>
+            <button
+              type="button"
+              onClick={cancelDocumentSelection}
+              className="flex h-6 w-6 items-center justify-center rounded text-[#9098a4] hover:bg-[#f1f3f6] hover:text-[#1f2329]"
+              title="关闭关联文档"
+              aria-label="关闭关联文档"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+        <div className="mb-2 flex items-center gap-1 rounded-md bg-[#fff7ed] px-2 py-1.5 text-[12px] text-[#f97316]">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 truncate">
+            {it.documentNotice ?? "涉密等级≤人员密级的文件才出现在列表中"}
+          </span>
+        </div>
+        <div className="relative mb-2">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9098a4]" />
+          <input
+            value={documentQuery}
+            onChange={(event) => {
+              setDocumentQuery(event.target.value);
+              setDocumentPage(1);
+            }}
+            placeholder="按文件名称筛选"
+            className="h-8 w-full rounded-md border border-[#e5e7ec] bg-white pl-8 pr-3 text-[12px] outline-none placeholder:text-[#9098a4] focus:border-[#00c6f3]"
+          />
+        </div>
+        <div className={panelMode === "embedded" ? "min-h-0 flex-1 overflow-y-auto" : "min-h-[235px]"}>
+          {pagedDocuments.length > 0 ? (
+            pagedDocuments.map((doc, index) => {
+              const documentKey = `${it.id}:${doc.name}`;
+              const documentChecked = draftDocumentKeys.has(documentKey);
+              return (
+                <div
+                  key={`${doc.name}-${index}`}
+                  className="flex items-start gap-2 border-b border-[#f3f4f7] py-2.5 last:border-b-0"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleDocument(documentKey)}
+                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                      documentChecked
+                        ? "border-[#00befa] bg-[#00befa]"
+                        : "border-[#cbd0d8] bg-white"
+                    }`}
+                    aria-label={`${documentChecked ? "取消选择" : "选择"} ${doc.name}`}
+                    aria-pressed={documentChecked}
+                  >
+                    {documentChecked && (
+                      <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none">
+                        <path
+                          d="M2.5 6.5l2.5 2.5 4.5-5"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="min-w-0 break-words text-[12px] leading-5 text-[#3a4150]">
+                        {doc.name}
+                      </span>
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1.5 py-0.5 text-[12px] leading-4 text-[#10b981]">
+                        <ShieldCheck className="h-3 w-3" />
+                        {formatSecurityLevel(doc.level)}
+                      </span>
+                      {doc.versions && doc.versions.length > 1 && (
+                        <span
+                          title={`历史版本：${doc.versions.join("、")}`}
+                          className="inline-flex shrink-0 items-center rounded border border-[#b5effb] bg-[#e8f9fe] px-1.5 py-0.5 text-[12px] leading-4 text-[#00aeda]"
+                        >
+                          最新版本 {doc.versions.at(-1)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex h-[180px] items-center justify-center text-[12px] text-[#9098a4]">
+              无匹配文件
+            </div>
+          )}
+        </div>
+        <div className="mt-2 flex items-center justify-between border-t border-[#eef0f3] pt-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setDocumentPage((page) => Math.max(1, page - 1))}
+              disabled={currentDocumentPage <= 1}
+              className="flex h-7 w-7 items-center justify-center rounded border border-[#e5e7ec] text-[#6b7280] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-40"
+              title="上一页"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span className="min-w-[48px] text-center text-[12px] text-[#6b7280]">
+              {currentDocumentPage}/{documentPageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setDocumentPage((page) => Math.min(documentPageCount, page + 1))}
+              disabled={currentDocumentPage >= documentPageCount}
+              className="flex h-7 w-7 items-center justify-center rounded border border-[#e5e7ec] text-[#6b7280] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-40"
+              title="下一页"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={cancelDocumentSelection}
+              className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[12px] text-[#3a4150] hover:bg-[#f8fafc]"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={confirmDocumentSelection}
+              className="h-8 rounded-md bg-[#00befa] px-3 text-[12px] text-white hover:bg-[#00b4fa]"
+            >
+              确定
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      className={
+        embedded
+          ? "absolute inset-0 z-50 flex items-center justify-center bg-white/70 p-3 backdrop-blur-[1px]"
+          : "fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      }
       onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-[920px] flex-col rounded-xl bg-white shadow-2xl"
+        className={
+          embedded
+            ? "relative flex max-h-[calc(100%-24px)] w-full max-w-[680px] flex-col rounded-lg bg-white shadow-2xl"
+            : "relative flex max-h-[80vh] w-[920px] flex-col rounded-xl bg-white shadow-2xl"
+        }
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5">
-          <div className="flex items-center gap-3">
+        <div className={embedded ? "flex items-start justify-between gap-3 px-4 pt-4" : "flex items-center justify-between px-6 pt-5"}>
+          <div className={embedded ? "min-w-0" : "flex items-center gap-3"}>
             <span className="text-[16px] font-medium leading-6 text-[#1f2329]">
               添加知识库
             </span>
-            <span className="flex items-center gap-1 text-[12px] leading-5 text-[#f97316]">
+            <span className={embedded ? "mt-1 flex items-center gap-1 text-[12px] leading-5 text-[#f97316]" : "flex items-center gap-1 text-[12px] leading-5 text-[#f97316]"}>
               <AlertCircle className="h-3.5 w-3.5" />
               涉密等级≤人员密级的库才出现在列表中
             </span>
@@ -300,7 +484,7 @@ export function KnowledgeBaseModal({
         </div>
 
         {/* Tabs + actions */}
-        <div className="flex items-center justify-between border-b border-[#eef0f3] px-6 pt-4">
+        <div className={embedded ? "flex flex-col gap-3 border-b border-[#eef0f3] px-4 pt-3" : "flex items-center justify-between border-b border-[#eef0f3] px-6 pt-4"}>
           <div className="flex gap-6">
             {[
               { key: "mine", label: "个人创建" },
@@ -313,19 +497,19 @@ export function KnowledgeBaseModal({
                 }
                 className={`relative pb-3 text-[14px] font-medium leading-5 ${
                   tab === t.key
-                    ? "text-[#3b82f6]"
+                    ? "text-[#00aeda]"
                     : "text-[#3a4150]"
                 }`}
               >
                 {t.label}
                 {tab === t.key && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#3b82f6]" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-[#00c6f3]" />
                 )}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-3 pb-2">
-            <button className="flex items-center gap-1 text-[13px] font-medium leading-5 text-[#3b82f6] hover:opacity-80">
+          <div className={embedded ? "flex items-center justify-between gap-3 pb-3" : "flex items-center gap-3 pb-2"}>
+            <button className="flex items-center gap-1 text-[13px] font-medium leading-5 text-[#00aeda] hover:opacity-80">
               <PlusCircle className="h-3.5 w-3.5" />
               创建知识库
             </button>
@@ -333,18 +517,18 @@ export function KnowledgeBaseModal({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索库名 / 概述 / 知识点"
-              className="w-[180px] rounded-md border border-[#e5e7ec] px-3 py-1.5 text-[13px] outline-none placeholder:text-[#9098a4] focus:border-[#6b59f5]"
+              className={embedded ? "h-8 min-w-0 flex-1 rounded-md border border-[#e5e7ec] px-3 text-[13px] outline-none placeholder:text-[#9098a4] focus:border-[#00c6f3]" : "w-[180px] rounded-md border border-[#e5e7ec] px-3 py-1.5 text-[13px] outline-none placeholder:text-[#9098a4] focus:border-[#00c6f3]"}
             />
           </div>
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto px-6">
+        <div className={embedded ? "flex-1 overflow-y-auto px-4" : "flex-1 overflow-y-auto px-6"}>
           <table className="w-full text-[13px] leading-5">
             <thead className="sticky top-0 bg-white text-[13px] font-medium text-[#6b7280]">
               <tr className="flex items-center border-b border-[#eef0f3]">
                 <th className="order-1 w-10 shrink-0 py-3 text-left">
-                  <span className="block h-3.5 w-3.5 rounded-sm bg-[#3b82f6]" />
+                  <span className="block h-3.5 w-3.5 rounded-sm bg-[#00befa]" />
                 </th>
                 <th className="order-2 min-w-0 flex-1 py-3 text-left">库名</th>
                 <th className="order-4 w-28 shrink-0 py-3 text-left">
@@ -362,24 +546,8 @@ export function KnowledgeBaseModal({
             <tbody>
               {filtered.map((it) => {
                 const checked = selected.has(it.id);
-                const normalizedDocumentQuery = documentQuery.trim().toLowerCase();
-                const filteredDocuments = it.documents.filter((document) =>
-                  document.name.toLowerCase().includes(normalizedDocumentQuery),
-                );
-                const documentPageCount = Math.max(
-                  1,
-                  Math.ceil(filteredDocuments.length / DOCUMENT_PAGE_SIZE),
-                );
-                const currentDocumentPage = Math.min(documentPage, documentPageCount);
-                const pagedDocuments = filteredDocuments.slice(
-                  (currentDocumentPage - 1) * DOCUMENT_PAGE_SIZE,
-                  currentDocumentPage * DOCUMENT_PAGE_SIZE,
-                );
                 const selectedDocumentCount = it.documents.filter((document) =>
                   selectedDocumentKeys.has(`${it.id}:${document.name}`),
-                ).length;
-                const draftDocumentCount = it.documents.filter((document) =>
-                  draftDocumentKeys.has(`${it.id}:${document.name}`),
                 ).length;
                 return (
                   <tr
@@ -391,7 +559,7 @@ export function KnowledgeBaseModal({
                         onClick={() => toggle(it.id)}
                         className={`flex h-4 w-4 items-center justify-center rounded border ${
                           checked
-                            ? "border-[#3b82f6] bg-[#3b82f6]"
+                            ? "border-[#00befa] bg-[#00befa]"
                             : "border-[#cbd0d8] bg-white"
                         }`}
                       >
@@ -422,7 +590,7 @@ export function KnowledgeBaseModal({
                       >
                         <button
                           type="button"
-                          className="max-w-[320px] break-words text-left text-[13px] leading-5 underline-offset-2 hover:text-[#2563eb] hover:underline"
+                          className="max-w-[320px] break-words text-left text-[13px] leading-5 underline-offset-2 hover:text-[#00aeda] hover:underline"
                           aria-label={`查看 ${it.name} 概述和知识点`}
                         >
                           {it.name}
@@ -475,7 +643,7 @@ export function KnowledgeBaseModal({
                               <span
                                 key={i}
                                 title={p.full}
-                                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-[#eef0ff] px-1.5 text-[12px] text-[#4b3bd6]"
+                                className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded bg-[#e8f9fe] px-1.5 text-[12px] text-[#00aeda]"
                               >
                                 {p.short}
                               </span>
@@ -505,160 +673,13 @@ export function KnowledgeBaseModal({
                               setDocumentQuery("");
                               setDocumentPage(1);
                             }}
-                            className="rounded px-1 py-0.5 text-left text-[13px] leading-5 text-[#2563eb] underline-offset-2 hover:bg-[#eff6ff] hover:underline"
+                            className="rounded px-1 py-0.5 text-left text-[13px] leading-5 text-[#00aeda] underline-offset-2 hover:bg-[#e8f9fe] hover:underline"
                             aria-label={`查看关联文档，已选 ${selectedDocumentCount} 个，共 ${it.documents.length} 个`}
                             aria-expanded={openDocumentId === it.id}
                           >
                             {selectedDocumentCount}
                           </button>
-                          <div
-                            role="dialog"
-                            aria-label={`${it.name}的关联文档`}
-                            className={`absolute right-0 top-7 z-20 w-[440px] rounded-lg border border-[#e5e7ec] bg-white p-3 text-[#1f2329] shadow-xl ${
-                              openDocumentId === it.id ? "block" : "hidden"
-                            }`}
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-3">
-                              <span className="text-[13px] font-medium leading-5">
-                                关联文档
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-[12px] text-[#6b7280]">
-                                  {draftDocumentCount}/{it.documents.length}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={cancelDocumentSelection}
-                                  className="flex h-6 w-6 items-center justify-center rounded text-[#9098a4] hover:bg-[#f1f3f6] hover:text-[#1f2329]"
-                                  title="关闭关联文档"
-                                  aria-label="关闭关联文档"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                            <div className="mb-2 flex items-center gap-1 rounded-md bg-[#fff7ed] px-2 py-1.5 text-[12px] text-[#f97316]">
-                              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                              {it.documentNotice ??
-                                "涉密等级≤人员密级的文件才出现在列表中"}
-                            </div>
-                            <div className="relative mb-2">
-                              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9098a4]" />
-                              <input
-                                value={documentQuery}
-                                onChange={(event) => {
-                                  setDocumentQuery(event.target.value);
-                                  setDocumentPage(1);
-                                }}
-                                placeholder="按文件名称筛选"
-                                className="h-8 w-full rounded-md border border-[#e5e7ec] bg-white pl-8 pr-3 text-[12px] outline-none placeholder:text-[#9098a4] focus:border-[#3b82f6]"
-                              />
-                            </div>
-                            <div className="min-h-[235px]">
-                              {pagedDocuments.length > 0 ? (
-                                pagedDocuments.map((doc, index) => {
-                                  const documentKey = `${it.id}:${doc.name}`;
-                                  const documentChecked = draftDocumentKeys.has(documentKey);
-                                  return (
-                                    <div
-                                      key={`${doc.name}-${index}`}
-                                      className="flex items-start gap-2 border-b border-[#f3f4f7] py-2.5 last:border-b-0"
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleDocument(documentKey)}
-                                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                                          documentChecked
-                                            ? "border-[#3b82f6] bg-[#3b82f6]"
-                                            : "border-[#cbd0d8] bg-white"
-                                        }`}
-                                        aria-label={`${documentChecked ? "取消选择" : "选择"} ${doc.name}`}
-                                        aria-pressed={documentChecked}
-                                      >
-                                        {documentChecked && (
-                                          <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none">
-                                            <path
-                                              d="M2.5 6.5l2.5 2.5 4.5-5"
-                                              stroke="currentColor"
-                                              strokeWidth="1.6"
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                            />
-                                          </svg>
-                                        )}
-                                      </button>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                                          <span className="min-w-0 break-words text-[12px] leading-5 text-[#3a4150]">
-                                            {doc.name}
-                                          </span>
-                                          <span className="inline-flex shrink-0 items-center gap-1 rounded border border-[#a7f3d0] bg-[#ecfdf5] px-1.5 py-0.5 text-[12px] leading-4 text-[#10b981]">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            {formatSecurityLevel(doc.level)}
-                                          </span>
-                                          {doc.versions && doc.versions.length > 1 && (
-                                            <span
-                                              title={`历史版本：${doc.versions.join("、")}`}
-                                              className="inline-flex shrink-0 items-center rounded border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[12px] leading-4 text-[#2563eb]"
-                                            >
-                                              最新版本 {doc.versions.at(-1)}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                              ) : (
-                                <div className="flex h-[180px] items-center justify-center text-[12px] text-[#9098a4]">
-                                  无匹配文件
-                                </div>
-                              )}
-                            </div>
-                            <div className="mt-2 flex items-center justify-between border-t border-[#eef0f3] pt-2">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setDocumentPage((page) => Math.max(1, page - 1))}
-                                  disabled={currentDocumentPage <= 1}
-                                  className="flex h-7 w-7 items-center justify-center rounded border border-[#e5e7ec] text-[#6b7280] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-40"
-                                  title="上一页"
-                                >
-                                  <ChevronLeft className="h-3.5 w-3.5" />
-                                </button>
-                                <span className="min-w-[48px] text-center text-[12px] text-[#6b7280]">
-                                  {currentDocumentPage}/{documentPageCount}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDocumentPage((page) => Math.min(documentPageCount, page + 1))
-                                  }
-                                  disabled={currentDocumentPage >= documentPageCount}
-                                  className="flex h-7 w-7 items-center justify-center rounded border border-[#e5e7ec] text-[#6b7280] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-40"
-                                  title="下一页"
-                                >
-                                  <ChevronRight className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={cancelDocumentSelection}
-                                  className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[12px] text-[#3a4150] hover:bg-[#f8fafc]"
-                                >
-                                  取消
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={confirmDocumentSelection}
-                                  className="h-8 rounded-md bg-[#3b82f6] px-3 text-[12px] text-white hover:bg-[#2563eb]"
-                                >
-                                  确定
-                                </button>
-                              </div>
-                            </div>
-                          </div>
+                          {!embedded && renderDocumentPanel(it, "popover")}
                         </div>
                       ) : (
                         0
@@ -691,12 +712,13 @@ export function KnowledgeBaseModal({
                 onConfirm?.(selected.size);
                 onClose();
               }}
-              className="rounded-md bg-[#3b82f6] px-4 py-1.5 text-[13px] text-white hover:opacity-90"
+              className="rounded-md bg-[#00befa] px-4 py-1.5 text-[13px] text-white hover:bg-[#00b4fa]"
             >
               确定
             </button>
           </div>
         </div>
+        {embedded && openDocumentItem && renderDocumentPanel(openDocumentItem, "embedded")}
       </div>
     </div>
   );
