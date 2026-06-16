@@ -403,9 +403,11 @@ const secondaryNavigation = [
 function EnterpriseShell({
   children,
   onOpenTranslate,
+  onOpenProject,
 }: {
   children: React.ReactNode;
   onOpenTranslate: () => void;
+  onOpenProject: () => void;
 }) {
   return (
     <div className="flex h-screen min-w-[1240px] flex-col overflow-hidden bg-[#f0f2f5] text-[#333]">
@@ -462,6 +464,7 @@ function EnterpriseShell({
               <button
                 type="button"
                 aria-expanded="true"
+                onClick={onOpenProject}
                 className="flex h-10 w-full items-center rounded-md px-3 text-left text-[14px] text-[#555] hover:bg-[rgba(0,198,243,.04)] hover:text-[#00b4fa]"
               >
                 <FolderKanban className="mr-3 h-4 w-4 text-[#41bde8]" />
@@ -549,6 +552,79 @@ const translateRecords = [
   ["01 洗碗机说明书_扫描版-1.pdf", "内部", "2026.06.04 20:56", "中 - 英", "传神多语", "3977", "解析完成", "翻译完成"],
 ];
 
+const projectRecords = [
+  {
+    name: "售前资料多语翻译项目",
+    code: "P20260616001",
+    category: "翻译项目",
+    type: "文档翻译",
+    manuscript: "售前模板.docx",
+    customer: "传神多语",
+    language: "中 - 英",
+    industry: "信息技术",
+    manager: "陈晨",
+    progress: "68%",
+    status: "进行中",
+    createdAt: "2026.06.16 09:20",
+  },
+  {
+    name: "BIOS 技术资料本地化",
+    code: "P20260615008",
+    category: "本地化项目",
+    type: "技术资料",
+    manuscript: "BIOS0629-109_中文原文.docx",
+    customer: "硬件事业部",
+    language: "中 - 英",
+    industry: "智能制造",
+    manager: "李明",
+    progress: "100%",
+    status: "已完成",
+    createdAt: "2026.06.15 15:55",
+  },
+  {
+    name: "制剂质量控制文档翻译",
+    code: "P20260615004",
+    category: "翻译项目",
+    type: "质量体系",
+    manuscript: "制剂的质量控制1234.docx",
+    customer: "医药客户组",
+    language: "中 - 英",
+    industry: "生物医药",
+    manager: "王敏",
+    progress: "42%",
+    status: "进行中",
+    createdAt: "2026.06.15 13:40",
+  },
+  {
+    name: "船舶月刊日中翻译",
+    code: "P20260611011",
+    category: "翻译项目",
+    type: "期刊资料",
+    manuscript: "世界の船舶2026年5月号.pdf",
+    customer: "海事资料中心",
+    language: "日 - 中",
+    industry: "船舶海工",
+    manager: "赵蕾",
+    progress: "15%",
+    status: "逾期",
+    createdAt: "2026.06.11 18:17",
+  },
+  {
+    name: "洗碗机说明书翻译",
+    code: "P20260604003",
+    category: "本地化项目",
+    type: "产品说明书",
+    manuscript: "01 洗碗机说明书_扫描版-1.pdf",
+    customer: "家电产品组",
+    language: "中 - 英",
+    industry: "家用电器",
+    manager: "周扬",
+    progress: "86%",
+    status: "进行中",
+    createdAt: "2026.06.04 20:56",
+  },
+];
+
 const summaryByFileName: Record<string, { overview: string; points: string[] }> = {
   "BIOS0629-109_中文原文.docx": {
     overview:
@@ -565,22 +641,142 @@ const summaryByFileName: Record<string, { overview: string; points: string[] }> 
       "该附件汇总项目交付材料、检测说明和关键参数，可辅助问答场景定位引用来源。",
     points: ["交付材料", "检测说明", "关键参数"],
   },
+  "模块_子模块_陈探_V1.x.docx": {
+    overview:
+      "该文件为项目主稿件，包含模块与子模块相关说明、版本信息和待翻译内容，可用于快速了解项目交付范围与术语重点。",
+    points: ["模块说明", "子模块配置", "版本信息", "项目主稿件"],
+  },
+  "(2)CPET管理手册.docx": {
+    overview:
+      "该任务稿件围绕 CPET 管理流程、任务处理规则和项目交付要求展开，适合作为任务翻译阶段的上下文参考。",
+    points: ["CPET 管理", "任务处理", "项目交付", "翻译流程"],
+  },
+  "(3)CPET管理手册.docx": {
+    overview:
+      "该任务稿件包含 CPET 管理手册的连续章节，重点涉及操作规范、审核节点和状态跟踪说明。",
+    points: ["操作规范", "审核节点", "状态跟踪", "管理手册"],
+  },
+  "(4)CPET管理手册.docx": {
+    overview:
+      "该稿件为 CPET 管理手册拆分任务，包含流程配置、派发说明和任务截止要求。",
+    points: ["流程配置", "任务派发", "截止日期", "拆分稿件"],
+  },
+  "(1)CPET管理手册.docx": {
+    overview:
+      "该稿件为 CPET 管理手册起始章节，包含项目背景、基础术语和翻译执行说明。",
+    points: ["项目背景", "基础术语", "执行说明", "起始章节"],
+  },
+  "(5)CPET管理手册.docx": {
+    overview:
+      "该稿件为 CPET 管理手册后续章节，包含审核任务、完成状态和交付检查相关内容。",
+    points: ["审核任务", "完成状态", "交付检查", "后续章节"],
+  },
 };
+
+const projectTaskRecords = [
+  {
+    name: "(2)CPET管理手册.docx",
+    id: "634710262849875972",
+    level: "30",
+    words: "2,393字",
+    locked: "已锁定",
+    total: "3,684",
+    progress: 0,
+    flow: "翻译",
+    status: "待处理",
+    statusTone: "pending",
+    assignedAt: "2026-06-09 11:12",
+    dueAt: "2026-06-26 11:13",
+  },
+  {
+    name: "(3)CPET管理手册.docx",
+    id: "634710262849875975",
+    level: "30",
+    words: "2,454字",
+    locked: "已锁定",
+    total: "4,856",
+    progress: 0,
+    flow: "翻译",
+    status: "待处理",
+    statusTone: "pending",
+    assignedAt: "2026-06-09 11:12",
+    dueAt: "2026-06-26 11:13",
+  },
+  {
+    name: "(4)CPET管理手册.docx",
+    id: "634710262849875978",
+    level: "30",
+    words: "3,193字",
+    locked: "已锁定",
+    total: "3,298",
+    progress: 0,
+    flow: "翻译",
+    status: "待处理",
+    statusTone: "pending",
+    assignedAt: "2026-06-09 11:12",
+    dueAt: "2026-06-26 11:13",
+  },
+  {
+    name: "(1)CPET管理手册.docx",
+    id: "634710262849875969",
+    level: "30",
+    words: "1,694字",
+    locked: "已锁定",
+    total: "3,098",
+    progress: 1,
+    flow: "翻译",
+    status: "进行中",
+    statusTone: "running",
+    assignedAt: "2026-06-09 11:12",
+    dueAt: "2026-06-26 11:13",
+  },
+  {
+    name: "(5)CPET管理手册.docx",
+    id: "634710262849875982",
+    level: "30",
+    words: "2,593字",
+    locked: "无锁定",
+    total: "",
+    progress: 100,
+    flow: "审核",
+    status: "进行中",
+    statusTone: "running",
+    assignedAt: "2026-06-09 11:31",
+    dueAt: "2026-06-27 11:31",
+  },
+  {
+    name: "(5)CPET管理手册.docx",
+    id: "634710262849875981",
+    level: "30",
+    words: "2,406字",
+    locked: "已锁定",
+    total: "2,593",
+    progress: 100,
+    flow: "翻译",
+    status: "已完成",
+    statusTone: "done",
+    assignedAt: "2026-06-09 11:12",
+    dueAt: "2026-06-26 11:13",
+  },
+];
 
 function SidebarItem({
   active,
   children,
   icon: Icon,
   expanded,
+  onClick,
 }: {
   active?: boolean;
   children: React.ReactNode;
   icon: React.ComponentType<{ className?: string }>;
   expanded?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`flex h-9 w-full items-center rounded-md px-3 text-left text-[14px] ${
         active ? "bg-[#dff5fd] font-semibold text-[#333]" : "text-[#555] hover:bg-[rgba(0,198,243,.04)]"
       }`}
@@ -591,6 +787,55 @@ function SidebarItem({
         <ChevronDown className={`h-3.5 w-3.5 text-[#999] ${expanded ? "rotate-180" : ""}`} />
       )}
     </button>
+  );
+}
+
+function KnowledgeQaSideDrawer({
+  open,
+  onClose,
+  onOpenKnowledgeQa,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenKnowledgeQa: () => void;
+}) {
+  return (
+    <div
+      className={`fixed inset-y-0 right-0 z-40 flex w-[760px] max-w-[calc(100vw-220px)] flex-col border-l border-[#e8edf3] bg-white shadow-[-12px_0_28px_rgba(0,0,0,0.12)] transition-transform duration-200 ${
+        open ? "translate-x-0" : "translate-x-full"
+      }`}
+      aria-hidden={!open}
+    >
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#edf0f4] px-5">
+        <div className="min-w-0">
+          <div className="text-[16px] font-semibold text-[#333]">智能问答</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="进入智能问答页面"
+            title="进入智能问答页面"
+            onClick={() => {
+              onClose();
+              onOpenKnowledgeQa();
+            }}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d5f5fd] bg-[#f3fdff] text-[#00aeda] hover:border-[#00c6f3] hover:bg-[#e8f9fe]"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            aria-label="关闭智能问答"
+            title="关闭智能问答"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[#999] hover:bg-[#f2f3f5] hover:text-[#333]"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      <KnowledgeQaWorkspace embedded onOpenTranslate={onClose} />
+    </div>
   );
 }
 
@@ -618,14 +863,17 @@ function TranslationFileNameCell({
 }) {
   const summary = summaryByFileName[name];
   const canPreview = summaryStatus === "done" && Boolean(summary);
+  const canShowHoverCard = summaryStatus === "generating" || canPreview;
+  const summaryLoadingText = "智能解析中...";
+  const summaryLoadingTooltip = "概要与知识点生成中...";
   const outlineSummaryIcon = (loading = false, tooltip?: string) => (
     <span
-      className={`inline-flex h-[22px] w-[38px] shrink-0 items-center justify-center rounded-md border border-[#00befa] bg-white text-[11px] font-semibold leading-none text-[#00aeda] ${
+      className={`inline-flex h-[22px] shrink-0 items-center justify-center rounded-md border border-[#00befa] bg-white px-1.5 text-[11px] font-semibold leading-none text-[#00aeda] ${
         loading ? "animate-pulse shadow-[0_0_0_2px_rgba(0,190,250,0.12)]" : ""
       }`}
       title={tooltip}
     >
-      概述
+      {loading ? summaryLoadingText : "概述"}
     </span>
   );
 
@@ -640,10 +888,10 @@ function TranslationFileNameCell({
       {summaryStatus === "generating" && (
         <span
           className="inline-flex h-[22px] shrink-0 items-center rounded-md text-[#00aeda]"
-          title="概述与知识点生成中..."
-          aria-label="概述与知识点生成中..."
+          title={summaryLoadingTooltip}
+          aria-label={summaryLoadingTooltip}
         >
-          {outlineSummaryIcon(true, "概述与知识点生成中...")}
+          {outlineSummaryIcon(true, summaryLoadingTooltip)}
         </span>
       )}
       {canPreview && (
@@ -656,28 +904,45 @@ function TranslationFileNameCell({
           <CheckCircle2 className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-white text-[#10b981]" />
         </span>
       )}
-      {canPreview && summary && (
-        <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-[360px] rounded-lg border border-[#e5e7ec] bg-white p-3 text-left shadow-xl group-hover:block">
-          <p className="whitespace-normal text-[12px] leading-5 text-[#3a4150]">
-            {summary.overview}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {summary.points.map((point) => (
-              <span
-                key={point}
-                className="inline-flex h-5 items-center rounded border border-[#b5effb] bg-[#e8f9fe] px-1.5 text-[12px] text-[#00aeda]"
-              >
-                {point}
-              </span>
-            ))}
+      {canShowHoverCard && (
+        <div className="pointer-events-none absolute left-0 top-full z-[80] mt-1 hidden w-[380px] rounded-lg border border-[#e5e7ec] bg-white p-3 text-left shadow-[0_8px_24px_rgba(0,0,0,0.12)] group-hover:block">
+          <div className="mb-2 whitespace-normal break-all text-[13px] font-medium leading-5 text-[#333]">
+            {name}
           </div>
+          {summaryStatus === "generating" ? (
+            <div className="rounded-md bg-[#f3fdff] px-2 py-1.5 text-[12px] leading-5 text-[#00aeda]">
+              {summaryLoadingTooltip}
+            </div>
+          ) : summary ? (
+            <>
+              <p className="whitespace-normal text-[12px] leading-5 text-[#3a4150]">
+                {summary.overview}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {summary.points.map((point) => (
+                  <span
+                    key={point}
+                    className="inline-flex h-5 items-center rounded border border-[#b5effb] bg-[#e8f9fe] px-1.5 text-[12px] text-[#00aeda]"
+                  >
+                    {point}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
       )}
     </div>
   );
 }
 
-function DocumentFastTranslatePage({ onOpenKnowledgeQa }: { onOpenKnowledgeQa: () => void }) {
+function DocumentFastTranslatePage({
+  onOpenKnowledgeQa,
+  onOpenProject,
+}: {
+  onOpenKnowledgeQa: () => void;
+  onOpenProject: () => void;
+}) {
   const [selectedDocIndexes, setSelectedDocIndexes] = useState<Set<number>>(() => new Set());
   const [qaDrawerOpen, setQaDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -763,7 +1028,7 @@ function DocumentFastTranslatePage({ onOpenKnowledgeQa }: { onOpenKnowledgeQa: (
             <nav className="w-[196px] space-y-1 transition-opacity duration-150" aria-label="主导航">
               <SidebarItem icon={Home}>首页</SidebarItem>
               <SidebarItem icon={Files} active>文档快翻</SidebarItem>
-              <SidebarItem icon={FolderKanban} expanded>项目管理</SidebarItem>
+              <SidebarItem icon={FolderKanban} expanded onClick={onOpenProject}>项目管理</SidebarItem>
               <div className="space-y-1 py-1 pl-10 text-[13px] text-[#666]">
                 <button
                   type="button"
@@ -846,7 +1111,7 @@ function DocumentFastTranslatePage({ onOpenKnowledgeQa }: { onOpenKnowledgeQa: (
               </button>
             </div>
 
-            <div className="overflow-hidden rounded-sm">
+            <div className="overflow-visible rounded-sm">
               <table className="w-full table-fixed border-collapse text-[14px] leading-5">
                 <thead className="bg-[#f9fafc] text-left text-[#666]">
                   <tr>
@@ -974,53 +1239,535 @@ function DocumentFastTranslatePage({ onOpenKnowledgeQa }: { onOpenKnowledgeQa: (
         </main>
       </div>
 
-      <div
-        className={`fixed inset-y-0 right-0 z-40 flex w-[760px] max-w-[calc(100vw-220px)] flex-col border-l border-[#e8edf3] bg-white shadow-[-12px_0_28px_rgba(0,0,0,0.12)] transition-transform duration-200 ${
-          qaDrawerOpen ? "translate-x-0" : "translate-x-full"
-        }`}
-        aria-hidden={!qaDrawerOpen}
-      >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#edf0f4] px-5">
-          <div className="min-w-0">
-            <div className="text-[16px] font-semibold text-[#333]">智能问答</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="进入智能问答页面"
-              title="进入智能问答页面"
-              onClick={() => {
-                setQaDrawerOpen(false);
-                onOpenKnowledgeQa();
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[#d5f5fd] bg-[#f3fdff] text-[#00aeda] hover:border-[#00c6f3] hover:bg-[#e8f9fe]"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              aria-label="关闭智能问答"
-              onClick={() => setQaDrawerOpen(false)}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#999] hover:bg-[#f2f3f5] hover:text-[#333]"
-            >
-              <XIcon className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-        <KnowledgeQaWorkspace
-          embedded
-          onOpenTranslate={() => setQaDrawerOpen(false)}
-        />
-      </div>
+      <KnowledgeQaSideDrawer
+        open={qaDrawerOpen}
+        onClose={() => setQaDrawerOpen(false)}
+        onOpenKnowledgeQa={onOpenKnowledgeQa}
+      />
     </div>
   );
 }
 
+function ProjectManagementPage({
+  onOpenTranslate,
+  onOpenKnowledgeQa,
+  onOpenWebcat,
+}: {
+  onOpenTranslate: () => void;
+  onOpenKnowledgeQa: () => void;
+  onOpenWebcat: () => void;
+}) {
+  const [qaDrawerOpen, setQaDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [fileSelected, setFileSelected] = useState(true);
+  const [activeProjectTab, setActiveProjectTab] = useState<"files" | "tasks">("files");
+  const [selectedTaskIndexes, setSelectedTaskIndexes] = useState<Set<number>>(() => new Set([0, 1]));
+  const [projectSummaryLoading, setProjectSummaryLoading] = useState(true);
+  const tabItems = ["文件(1)", "任务", "成员(1)", "动态", "进度", "统计", "设置"];
+  const projectFileName = "模块_子模块_陈探_V1.x.docx";
+  const selectedTaskCount = selectedTaskIndexes.size;
+  const selectedTaskWords = projectTaskRecords
+    .filter((_, index) => selectedTaskIndexes.has(index))
+    .reduce((sum, task) => sum + Number(task.words.replace(/[^\d]/g, "")), 0);
+  const allTasksSelected = selectedTaskIndexes.size === projectTaskRecords.length;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setProjectSummaryLoading(false), 12000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const toggleTaskSelection = (index: number) => {
+    setSelectedTaskIndexes((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const toggleAllTasks = () => {
+    setSelectedTaskIndexes((prev) =>
+      prev.size === projectTaskRecords.length
+        ? new Set()
+        : new Set(projectTaskRecords.map((_, index) => index)),
+    );
+  };
+
+  return (
+    <div className="flex h-screen min-w-[1240px] flex-col overflow-hidden bg-[#f0f2f5] text-[#333]">
+      <header className="flex h-14 shrink-0 items-center border-b border-[#f2f3f5] bg-white px-4">
+        <div className="flex w-[204px] shrink-0 items-center gap-2.5">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-[#4ec6ff] to-[#158fff] text-white shadow-sm">
+            <Languages className="h-4 w-4" />
+          </span>
+          <span className="text-[15px] font-semibold text-[#333]">智能翻译系统</span>
+        </div>
+        <div className="relative w-[320px]">
+          <input
+            aria-label="搜索全部术语或语料"
+            placeholder="搜索全部术语/语料"
+            className="h-8 w-full rounded-md border border-transparent bg-[#f9fafc] px-3 pr-9 text-[13px] outline-none placeholder:text-[#c2c7d0] focus:border-[#8ce8fb] focus:bg-white"
+          />
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#666]" />
+        </div>
+        <span className="ml-3 rounded border border-[#eee] bg-white px-2 py-0.5 text-[11px] text-[#999]">机器</span>
+        <button
+          type="button"
+          aria-label="打开用户中心"
+          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#a5edff] to-[#19bdf0] text-white shadow-sm"
+        >
+          <UserRound className="h-4 w-4" />
+        </button>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        <aside
+          className={`relative shrink-0 overflow-visible bg-white transition-[width,padding,border-color] duration-200 ${
+            qaDrawerOpen || sidebarCollapsed ? "w-0 border-r-0 px-0 py-3" : "w-[220px] px-3 py-3"
+          }`}
+          aria-hidden={qaDrawerOpen}
+        >
+          {!qaDrawerOpen && (
+            <button
+              type="button"
+              aria-label={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+              title={sidebarCollapsed ? "展开侧栏" : "收起侧栏"}
+              onClick={() => setSidebarCollapsed((prev) => !prev)}
+              className="absolute -right-3 top-5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[#edf0f4] bg-white text-[#999] shadow-sm hover:border-[#8ce8fb] hover:text-[#00b4fa]"
+            >
+              {sidebarCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+            </button>
+          )}
+          {!sidebarCollapsed && !qaDrawerOpen && (
+            <nav className="w-[196px] space-y-1 transition-opacity duration-150" aria-label="主导航">
+              <SidebarItem icon={Home}>首页</SidebarItem>
+              <SidebarItem icon={Files} onClick={onOpenTranslate}>文档快翻</SidebarItem>
+              <SidebarItem icon={FolderKanban} expanded active>项目管理</SidebarItem>
+              <div className="space-y-1 py-1 pl-10 text-[13px] text-[#666]">
+                <button
+                  type="button"
+                  onClick={onOpenKnowledgeQa}
+                  className="block h-8 hover:text-[#00b4fa]"
+                >
+                  智能问答
+                </button>
+              </div>
+              <SidebarItem icon={Database} expanded>语言资产</SidebarItem>
+              <div className="space-y-1 py-1 pl-10 text-[13px] text-[#666]">
+                <button type="button" className="block h-8 hover:text-[#00b4fa]">术语库</button>
+                <button type="button" className="block h-8 hover:text-[#00b4fa]">语料库</button>
+              </div>
+              <SidebarItem icon={Wrench}>工具包</SidebarItem>
+              <SidebarItem icon={Settings} expanded={false}>系统管理</SidebarItem>
+            </nav>
+          )}
+        </aside>
+
+        <main className="min-w-0 flex-1 overflow-y-auto bg-[#f0f2f5] px-5 py-4">
+          <div className="mb-3 flex h-6 items-center gap-2 text-[13px] leading-5 text-[#999]">
+            <span>项目管理</span>
+            <span>/</span>
+            <span className="font-medium text-[#666]">项目详情</span>
+          </div>
+
+          <div className="mb-4 grid grid-cols-[minmax(0,1fr)_150px] gap-4">
+            <section className="rounded-lg bg-white px-5 py-3 shadow-[0_1px_10px_rgba(32,22,120,0.04)]">
+              <div className="flex items-center gap-2">
+                <Folder className="h-4 w-4 text-[#6ecbff]" />
+                <h1 className="max-w-[520px] truncate text-[16px] font-medium leading-6 text-[#333]">
+                  模块_子模块_陈探_V1.x-06161319
+                </h1>
+                {["简体中文 - 英语", "通用行业", "机器"].map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex h-5 items-center rounded-full border border-[#e5e7ec] bg-[#fafbfc] px-2 text-[12px] leading-[18px] text-[#666]"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4 flex items-center gap-3 text-[13px] leading-5 text-[#888]">
+                <span>在线笔译总字数：</span>
+                <strong className="text-[#333]">152</strong>
+                <span>（中朝字数）</span>
+                <button
+                  type="button"
+                  className="inline-flex h-6 items-center rounded-full border border-[rgba(0,198,243,.35)] bg-[#f3fdff] px-3 text-[12px] leading-[18px] text-[#00aeda] hover:border-[#00c6f3]"
+                >
+                  添加历史语料库，可重复率分析
+                  <span className="ml-1 text-[#00befa]">节省成本</span>
+                  <span className="ml-1 text-[#00aeda]">前往</span>
+                </button>
+                <button type="button" className="ml-auto inline-flex items-center text-[12px] text-[#888] hover:text-[#00b4fa]">
+                  展开
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </button>
+              </div>
+            </section>
+
+            <section className="flex items-center justify-between rounded-lg bg-white px-4 py-3 shadow-[0_1px_10px_rgba(32,22,120,0.04)]">
+              <div>
+                <div className="text-[12px] text-[#999]">项目总进度：</div>
+                <div className="mt-1 text-[18px] font-semibold leading-6 text-[#333]">0%</div>
+                <div className="mt-1 text-[12px] text-[#aaa]">创建人： 管理员</div>
+              </div>
+              <div className="relative h-12 w-12 rounded-full bg-[#dff7ff]">
+                <div className="absolute inset-3 rounded-full bg-white" />
+                <div className="absolute inset-0 rounded-full border-[8px] border-[#bcefff]" />
+              </div>
+            </section>
+          </div>
+
+          <section className="rounded-lg bg-white p-4 shadow-[0_1px_10px_rgba(32,22,120,0.04)]">
+            <div className="mb-4 flex h-10 items-end gap-0 border-b border-[#edf0f4]">
+              {tabItems.map((tab, index) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => {
+                    if (index === 0) setActiveProjectTab("files");
+                    if (index === 1) setActiveProjectTab("tasks");
+                  }}
+                  className={`h-10 min-w-[72px] rounded-t-md border border-b-0 border-[#edf0f4] px-5 text-[14px] leading-5 ${
+                    (index === 0 && activeProjectTab === "files") ||
+                    (index === 1 && activeProjectTab === "tasks")
+                      ? "bg-white font-semibold text-[#00aeda]"
+                      : "bg-[#f7f8fa] text-[#666] hover:text-[#00b4fa]"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {activeProjectTab === "files" ? (
+              <>
+            <div className="mb-3 flex h-8 items-center gap-2">
+              <button type="button" className="h-8 rounded-md bg-[#00befa] px-4 text-[13px] leading-5 text-white hover:bg-[#00b4fa]">
+                上传文件
+              </button>
+              <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                重复率分析
+              </button>
+              <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                项目级审核
+              </button>
+              <button type="button" aria-label="更多操作" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                ...
+              </button>
+              <button type="button" className="ml-auto h-8 rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                快捷引导
+              </button>
+            </div>
+
+            <div className="mb-3 flex min-h-8 items-center gap-2">
+              <div className="flex h-8 items-center rounded-sm bg-[#eefaff] px-3 text-[13px] leading-5 text-[#999]">
+                已选 1 项　共计：152 字数
+              </div>
+              <div className="ml-auto flex items-center gap-2">
+                <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">全部单双语稿件 <ChevronDown className="ml-1 inline h-3.5 w-3.5" /></button>
+                <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">显示原稿+拆分稿 <ChevronDown className="ml-1 inline h-3.5 w-3.5" /></button>
+                <input className="h-8 w-[180px] rounded-md border border-[#e5e7ec] px-3 text-[13px] leading-5 outline-none placeholder:text-[#c7cbd2] focus:border-[#8ce8fb]" placeholder="搜索文件名或用户名" />
+                <button type="button" className="h-8 rounded-md bg-[#00befa] px-4 text-[13px] leading-5 text-white hover:bg-[#00b4fa]">查询</button>
+                <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">重置</button>
+              </div>
+            </div>
+
+            <div className="mb-2 flex min-h-7 items-center justify-end gap-3 border-t border-[#f1f2f4] pt-2 text-[12px] leading-[18px] text-[#00aeda]">
+              <button
+                type="button"
+                onClick={() => setQaDrawerOpen(true)}
+                className="inline-flex items-center gap-1 hover:underline"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                智能问答
+              </button>
+              {["解锁", "开放/暂停", "术语提取", "指派", "驳回", "结束任务", "取消/恢复", "查看", "导出", "删除"].map((action) => (
+                <button key={action} type="button" className="hover:underline">
+                  {action}
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-visible rounded-sm border border-[#f1f2f4]">
+              <table className="w-full table-fixed border-collapse text-[14px] leading-5">
+                <thead className="bg-[#f9fafc] text-left text-[#666]">
+                  <tr>
+                    <th className="h-10 w-[50px] px-3 font-medium">
+                      <input
+                        type="checkbox"
+                        aria-label="全选项目文件"
+                        checked={fileSelected}
+                        onChange={(event) => setFileSelected(event.target.checked)}
+                        className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                      />
+                    </th>
+                    <th className="h-10 px-3 font-medium">文件名称 <ChevronDown className="ml-1 inline h-3 w-3 text-[#999]" /></th>
+                    <th className="h-10 w-[120px] px-3 font-medium">中朝字数</th>
+                    <th className="h-10 w-[72px] px-3 font-medium">预翻</th>
+                    <th className="h-10 w-[72px] px-3 font-medium">翻译</th>
+                    <th className="h-10 w-[72px] px-3 font-medium">审核</th>
+                    <th className="h-10 w-[150px] px-3 text-right font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-[#eee] hover:bg-[rgba(0,198,243,.04)]">
+                    <td className="h-12 px-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`选择文件 ${projectFileName}`}
+                        checked={fileSelected}
+                        onChange={(event) => setFileSelected(event.target.checked)}
+                        className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                      />
+                    </td>
+                    <td className="px-3">
+                      <TranslationFileNameCell
+                        name={projectFileName}
+                        summaryStatus={projectSummaryLoading ? "generating" : "done"}
+                      />
+                      <div className="mt-0.5 flex items-center gap-2 text-[12px] text-[#999]">
+                        <span>单语</span>
+                        <span>|</span>
+                        <span>06-16</span>
+                        <span className="rounded-full border border-[#e5e7ec] px-1.5 text-[#999]">公开</span>
+                      </div>
+                    </td>
+                    <td className="px-3 text-[#666]">152 字 <span className="text-[#bbb]">（无锁定）</span></td>
+                    {["预翻", "翻译", "审核"].map((step, index) => (
+                      <td key={step} className="px-3">
+                        <div className="flex items-center gap-1 text-[#999]">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#e8f9fe] text-[#00aeda]">
+                            {index === 0 ? "▶" : "+"}
+                          </span>
+                          <span className="text-[12px]">{step}</span>
+                        </div>
+                      </td>
+                    ))}
+                    <td className="px-3 text-right">
+                      <button type="button" onClick={onOpenWebcat} className="mr-3 text-[13px] text-[#00aeda] hover:underline">查看</button>
+                      <button type="button" className="mr-3 text-[13px] text-[#00aeda] hover:underline">导出</button>
+                      <button type="button" aria-label="更多文件操作" className="text-[13px] text-[#00aeda] hover:underline">...</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex items-center justify-end gap-2 text-[13px] leading-5 text-[#999]">
+              <span>总共 1 个主文件</span>
+              <button type="button" className="flex h-8 w-8 items-center justify-center rounded text-[#ccc]"><ChevronLeft className="h-4 w-4" /></button>
+              <button type="button" className="h-8 min-w-8 rounded-md border border-[#00befa] bg-white px-2 text-[#00aeda]">1</button>
+              <button type="button" className="flex h-8 w-8 items-center justify-center rounded text-[#ccc]"><ChevronRight className="h-4 w-4" /></button>
+              <button type="button" className="flex h-8 items-center gap-1 rounded-md border border-[#eee] bg-white px-3 text-[#666]">
+                10 条/页
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-3 flex h-8 items-center gap-2">
+                  <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                    导出记录
+                  </button>
+                  <button type="button" className="h-8 rounded-md bg-[#f7f8fa] px-3 text-[13px] leading-5 text-[#666]">
+                    待处理 <span className="ml-1 text-[#00aeda]">3</span>
+                  </button>
+                  <button type="button" className="h-8 rounded-md bg-[#f7f8fa] px-3 text-[13px] leading-5 text-[#666]">
+                    进行中 <span className="ml-1 text-[#00aeda]">2</span>
+                  </button>
+                  <button type="button" className="h-8 rounded-md bg-[#f7f8fa] px-3 text-[13px] leading-5 text-[#666]">
+                    待开始 <span className="ml-1 text-[#00aeda]">0</span>
+                  </button>
+                  <button type="button" className="h-8 rounded-md bg-[#f7f8fa] px-3 text-[13px] leading-5 text-[#666]">
+                    驳回 <span className="ml-1 text-[#00aeda]">0</span>
+                  </button>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                      项目流程
+                      <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-3 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+                      任务状态
+                      <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                    </button>
+                    <input
+                      className="h-8 w-[180px] rounded-md border border-[#e5e7ec] px-3 text-[13px] leading-5 outline-none placeholder:text-[#c7cbd2] focus:border-[#8ce8fb]"
+                      placeholder="请输入文件名"
+                    />
+                    <button type="button" className="h-8 rounded-md bg-[#00befa] px-4 text-[13px] leading-5 text-white hover:bg-[#00b4fa]">查询</button>
+                    <button type="button" className="h-8 rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] leading-5 text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">重置</button>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex min-h-8 items-center gap-2">
+                  <div className="flex h-8 items-center rounded-sm bg-[#eefaff] px-3 text-[13px] leading-5 text-[#999]">
+                    已选 {selectedTaskCount} 项
+                    {selectedTaskCount > 0 && (
+                      <span className="ml-3">共计：{selectedTaskWords.toLocaleString()} 字数</span>
+                    )}
+                  </div>
+                  <div className="ml-auto flex items-center gap-3 text-[12px] leading-[18px] text-[#00aeda]">
+                    <button
+                      type="button"
+                      disabled={selectedTaskCount === 0}
+                      onClick={() => setQaDrawerOpen(true)}
+                      className="inline-flex items-center gap-1 hover:underline disabled:cursor-not-allowed disabled:text-[#bfbfbf] disabled:no-underline"
+                    >
+                      <BookOpen className="h-3.5 w-3.5" />
+                      智能问答
+                    </button>
+                    {["批量翻译", "驳回", "导出"].map((action) => (
+                      <button key={action} type="button" className="hover:underline">
+                        {action}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="overflow-visible rounded-sm border border-[#f1f2f4]">
+                  <table className="w-full min-w-[1180px] table-fixed border-collapse text-[14px] leading-5">
+                    <thead className="bg-[#f9fafc] text-left text-[#666]">
+                      <tr>
+                        <th className="h-10 w-[50px] px-3 font-medium">
+                          <input
+                            type="checkbox"
+                            aria-label="全选任务稿件"
+                            checked={allTasksSelected}
+                            onChange={toggleAllTasks}
+                            className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                          />
+                        </th>
+                        <th className="h-10 w-[260px] px-3 font-medium">文件名</th>
+                        <th className="h-10 w-[90px] px-3 font-medium">涉密等级</th>
+                        <th className="h-10 w-[145px] px-3 font-medium">中朝字数</th>
+                        <th className="h-10 w-[120px] px-3 font-medium">任务进度</th>
+                        <th className="h-10 w-[100px] px-3 font-medium">项目流程</th>
+                        <th className="h-10 w-[100px] px-3 font-medium">任务状态</th>
+                        <th className="h-10 w-[145px] px-3 font-medium">派发时间</th>
+                        <th className="h-10 w-[145px] px-3 font-medium">截止日期</th>
+                        <th className="h-10 w-[160px] px-3 text-right font-medium">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {projectTaskRecords.map((task, index) => {
+                        const checked = selectedTaskIndexes.has(index);
+                        const isDone = task.statusTone === "done";
+                        const summaryStatus =
+                          projectSummaryLoading && index === 0 ? "generating" : "done";
+                        return (
+                          <tr
+                            key={`${task.name}-${task.id}`}
+                            className={`border-b border-[#eee] hover:bg-[rgba(0,198,243,.04)] ${
+                              checked ? "bg-[#f3fdff]" : ""
+                            }`}
+                          >
+                            <td className="h-12 px-3">
+                              <input
+                                type="checkbox"
+                                aria-label={`选择任务稿件 ${task.name}`}
+                                checked={checked}
+                                onChange={() => toggleTaskSelection(index)}
+                                className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                              />
+                            </td>
+                            <td className="px-3">
+                              <TranslationFileNameCell
+                                name={task.name}
+                                summaryStatus={summaryStatus}
+                              />
+                              <div className="mt-0.5 truncate text-[12px] text-[#c4c8d0]">
+                                {task.id}
+                              </div>
+                            </td>
+                            <td className="px-3">
+                              <span className="inline-flex h-5 items-center rounded-full border border-[#e5e7ec] px-2 text-[12px] text-[#999]">
+                                {task.level}
+                              </span>
+                            </td>
+                            <td className="px-3 text-[#666]">
+                              {task.words}
+                              <span className="ml-1 text-[#c4c8d0]">
+                                （{task.locked}{task.total ? ` / ${task.total}` : ""}）
+                              </span>
+                            </td>
+                            <td className="px-3">
+                              <div className="flex items-center gap-2">
+                                <span className="h-1.5 w-[64px] overflow-hidden rounded-full bg-[#eef0f3]">
+                                  <span
+                                    className={`block h-full rounded-full ${isDone ? "bg-[#52c41a]" : "bg-[#00befa]"}`}
+                                    style={{ width: `${task.progress}%` }}
+                                  />
+                                </span>
+                                <span className={`text-[12px] ${isDone ? "text-[#52c41a]" : "text-[#999]"}`}>
+                                  {task.progress}%
+                                </span>
+                                {isDone && <CheckCircle2 className="h-3.5 w-3.5 text-[#52c41a]" />}
+                              </div>
+                            </td>
+                            <td className="px-3 text-[#333]">{task.flow}</td>
+                            <td className="px-3">
+                              <span className="inline-flex items-center gap-1 text-[#333]">
+                                <span
+                                  className={`h-1.5 w-1.5 rounded-full ${
+                                    task.statusTone === "done"
+                                      ? "bg-[#52c41a]"
+                                      : task.statusTone === "running"
+                                        ? "bg-[#00c6f3]"
+                                        : "bg-[#00c6f3]"
+                                  }`}
+                                />
+                                {task.status}
+                              </span>
+                            </td>
+                            <td className="px-3 text-[#666]">{task.assignedAt}</td>
+                            <td className="px-3 text-[#666]">{task.dueAt}</td>
+                            <td className="px-3 text-right">
+                              <button type="button" onClick={onOpenWebcat} className="mr-3 text-[13px] text-[#00aeda] hover:underline">
+                                {isDone ? "预览" : "在线笔译"}
+                              </button>
+                              <button type="button" className="mr-3 text-[13px] text-[#00aeda] hover:underline">导出</button>
+                              <button type="button" aria-label="更多任务操作" className="text-[13px] text-[#00aeda] hover:underline">...</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-4 flex items-center justify-end gap-2 text-[13px] leading-5 text-[#999]">
+                  <span>共6条</span>
+                  <button type="button" className="flex h-8 w-8 items-center justify-center rounded text-[#ccc]"><ChevronLeft className="h-4 w-4" /></button>
+                  <button type="button" className="h-8 min-w-8 rounded-md border border-[#00befa] bg-white px-2 text-[#00aeda]">1</button>
+                  <button type="button" className="flex h-8 w-8 items-center justify-center rounded text-[#ccc]"><ChevronRight className="h-4 w-4" /></button>
+                  <button type="button" className="flex h-8 items-center gap-1 rounded-md border border-[#eee] bg-white px-3 text-[#666]">
+                    10 条/页
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        </main>
+      </div>
+
+      <KnowledgeQaSideDrawer
+        open={qaDrawerOpen}
+        onClose={() => setQaDrawerOpen(false)}
+        onOpenKnowledgeQa={onOpenKnowledgeQa}
+      />
+    </div>
+  );
+}
 function KnowledgeQaWorkspace({
   onOpenTranslate,
+  onOpenProject,
   embedded = false,
 }: {
   onOpenTranslate: () => void;
+  onOpenProject?: () => void;
   embedded?: boolean;
 }) {
   const [input, setInput] = useState("");
@@ -1554,22 +2301,393 @@ function KnowledgeQaWorkspace({
   if (embedded) return workspaceContent;
 
   return (
-    <EnterpriseShell onOpenTranslate={onOpenTranslate}>
+    <EnterpriseShell onOpenTranslate={onOpenTranslate} onOpenProject={onOpenProject ?? onOpenTranslate}>
       {workspaceContent}
     </EnterpriseShell>
   );
 }
 
+const webcatSegments = [
+  {
+    no: 148,
+    source: "3）与公司的其他政策和目标同等重要，由各级最高管理者签发，且可公开获取。",
+    target:
+      "3)It shall be equally important as other company policies and objectives, issued by top management at all levels, and publicly accessible.",
+    status: "100%",
+    origin: "",
+    active: true,
+  },
+  {
+    no: 149,
+    source: "4）与其活动、产品和服务及其对HSE的影响相关。",
+    target: "4)It shall be relevant to its activities, products, services, and their impact on HSE.",
+    status: "100%",
+    origin: "",
+  },
+  {
+    no: 150,
+    source: "5）公司政策在所有机构和层级得到实施和维护。",
+    target: "5)The company's policies are implemented and maintained at all organizational levels and hierarchies.",
+    status: "MT",
+    origin: "mt",
+  },
+  {
+    no: 151,
+    source: "6）承诺满足并力争超越所有适用的法律法规要求；在无适用法律法规的情况下，严格执行公司内部标准。",
+    target:
+      "6)Commitment to meet and strive to exceed all applicable legal and regulatory requirements; in the absence of applicable laws and regulations, strictly enforce internal company standards.",
+    status: "MT",
+    origin: "mt",
+  },
+  {
+    no: 152,
+    source: "7）承诺公司将其活动、产品和服务对健康、安全和环境带来的风险与危害降低至合理可行的最低水平。",
+    target:
+      "7)Commit to reducing the risks and hazards posed by the company's activities, products, and services to health, safety, and the environment to the lowest reasonably achievable level.",
+    status: "100%",
+    origin: "",
+  },
+  {
+    no: 153,
+    source: "8）设定具有挑战性的HSE目标，将领导承诺纳入HSE目标，并致力于通过系统化的管理和不懈的努力，实现HSE绩效的持续提升。",
+    target:
+      "8)Set challenging HSE objectives, incorporate leadership commitment into HSE goals, and strive for continuous improvement in HSE performance through systematic management and relentless efforts.",
+    status: "MT",
+    origin: "mt",
+  },
+  { no: 154, source: "相关文件", target: "related documents", status: "100%", origin: "" },
+  {
+    no: 155,
+    source: "公司的HSE政策详见第一级文件《政策》",
+    target: "The company's HSE policy is detailed in the first-level document Policy.",
+    status: "100%",
+    origin: "",
+  },
+  { no: 156, source: "5.2.2 战略目标", target: "5.2.2 strategic objective", status: "MT", origin: "mt" },
+  { no: 157, source: "目的", target: "Purpose", status: "REP", origin: "rep" },
+  { no: 158, source: "建立公司HSE目标并定期审查。", target: "Establish the company's HSE objectives and conduct regular reviews.", status: "MT", origin: "mt" },
+  { no: 159, source: "要求", target: "Requirements", status: "100%", origin: "" },
+  {
+    no: 160,
+    source: "1）本要素的归口管理部门为HSE部门。",
+    target: "1)The functional management department for this element is the HSE Department.",
+    status: "100%",
+    origin: "",
+  },
+  {
+    no: 161,
+    source: "2）公司HSE目标应与公司政策保持一致，且要反映出与活动相关的HSE危害和影响，以及生产、经营、业务方面的要求。",
+    target:
+      "2)The company's HSE objectives shall be consistent with the company's policies and reflect the HSE hazards and impacts related to activities, as well as the requirements of production, operation, and business.",
+    status: "MT",
+    origin: "mt",
+  },
+  {
+    no: 162,
+    source: "3）公司HSE目标为：追求零伤害、零污染、零事故，在健康、安全与环境管理方面达到国际同行业先进水平。",
+    target:
+      "3)The company's HSE objectives are: to pursue zero injuries, zero pollution, and zero accidents, and to achieve internationally advanced levels in health, safety, and environmental management within the same industry.",
+    status: "100%",
+    origin: "",
+  },
+  { no: 163, source: "5.3 组织机构、资源和文件", target: "5.3 Organizational structure, resources and documentation", status: "MT", origin: "mt" },
+  { no: 164, source: "5.3.1 组织机构和职责", target: "5.3.1 Organization and responsibilities", status: "100%", origin: "" },
+  { no: 165, source: "目的", target: "Purpose", status: "REP", origin: "rep" },
+  {
+    no: 166,
+    source: "明确各级组织机构的HSE职责与权限，并形成文件，推动全员履行HSE职责。",
+    target:
+      "Clarify the HSE responsibilities and authorities of organizational structures at all levels, document them, and promote the fulfillment of HSE duties by all personnel.",
+    status: "MT",
+    origin: "mt",
+  },
+  { no: 167, source: "要求", target: "Requirements", status: "100%", origin: "" },
+  {
+    no: 168,
+    source: "1）本要素的归口管理部门为人力资源部门。",
+    target: "1)The functional management department for this element is the Human Resources Department.",
+    status: "100%",
+    origin: "",
+  },
+  {
+    no: 169,
+    source: "2）建立完善的HSE组织机构，明确HSE职责，并进行沟通，推动全员落实HSE职责。",
+    target:
+      "2)Establish a comprehensive HSE organizational structure, clarify HSE responsibilities, and communicate them to promote the implementation of HSE duties by all personnel.",
+    status: "MT",
+    origin: "mt",
+  },
+  {
+    no: 170,
+    source: "公司及海外项目设立HSE委员会，作为HSE管理的最高决策机构，及时对HSE重大事务进行审议、决策，推动HSE管理持续改进。",
+    target:
+      "The company and overseas projects shall establish an HSE Committee as the highest decision-making body for HSE management, promptly deliberating and making decisions on major HSE matters to drive continuous improvement in HSE management.",
+    status: "100%",
+    origin: "",
+  },
+];
+
+type WebCatAssistantTab = "提示" | "QA检查" | "备注" | "智能问答" | "日志";
+
+const webcatAssistantTabs: WebCatAssistantTab[] = ["提示", "QA检查", "备注", "智能问答", "日志"];
+
+function WebCatPage({ onBackProject }: { onBackProject: () => void }) {
+  const [activeAssistantTab, setActiveAssistantTab] = useState<WebCatAssistantTab>("日志");
+  const toolbarGroups = [
+    ["确认", "机器", "质检", "润色", "清空"],
+    ["撤销", "B", "I", "U", "X²", "X₂", "Aa"],
+    ["清除样式", "替换", "添加术语"],
+    ["差异对比", "复制原文", "合并"],
+    ["批注锁定", "快照", "设置"],
+  ];
+
+  const openKnowledgeQaPage = () => {
+    window.open(`${window.location.origin}${window.location.pathname}?workspace=qa`, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div className="flex h-screen min-w-[1240px] flex-col overflow-hidden bg-white text-[#333]">
+      <header className="flex h-11 shrink-0 items-center border-b border-[#edf0f4] bg-white px-3">
+        <button
+          type="button"
+          onClick={onBackProject}
+          aria-label="返回项目详情"
+          title="返回项目详情"
+          className="mr-3 flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-[#4ec6ff] to-[#158fff] text-white shadow-sm"
+        >
+          <FileText className="h-4 w-4" />
+        </button>
+        <div className="max-w-[280px] truncate text-[14px] font-semibold leading-5">CPET管理手册.docx</div>
+        <span className="ml-4 text-[12px] text-[#666]">字数：</span>
+        <span className="ml-1 text-[12px] text-[#999]">0 / 2393</span>
+        <span className="mx-2 h-3 w-px bg-[#e5e7ec]" />
+        <span className="text-[12px] text-[#666]">句数：</span>
+        <span className="ml-1 text-[12px] text-[#999]">0 / 80</span>
+        <span className="ml-3 inline-flex h-5 min-w-7 items-center justify-center rounded-full border border-[#e5e7ec] px-2 text-[12px] text-[#666]">
+          30
+        </span>
+        <button type="button" className="ml-auto h-7 rounded-md bg-[#00befa] px-4 text-[12px] font-medium text-white hover:bg-[#00b4fa]">
+          提交任务
+        </button>
+        <button type="button" className="ml-2 h-7 rounded-md border border-[#e5e7ec] bg-white px-4 text-[12px] text-[#666] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+          导出译稿
+        </button>
+        <button type="button" aria-label="帮助" className="ml-3 h-7 w-7 rounded-full text-[13px] text-[#999] hover:bg-[#f7f8fa] hover:text-[#00b4fa]">
+          ?
+        </button>
+        <button type="button" aria-label="用户中心" className="ml-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#a5edff] to-[#19bdf0] text-white shadow-sm">
+          <UserRound className="h-3.5 w-3.5" />
+        </button>
+      </header>
+
+      <section className="shrink-0 border-b border-[#edf0f4] bg-[#f9fcff]">
+        <div className="flex h-9 items-center gap-2 px-3 text-[12px] leading-[18px] text-[#666]">
+          {toolbarGroups.map((group, groupIndex) => (
+            <div key={group.join("-")} className="flex items-center gap-1 border-r border-[#e9eef5] pr-2 last:border-r-0">
+              {group.map((item) => (
+                <button
+                  key={`${groupIndex}-${item}`}
+                  type="button"
+                  className={`inline-flex h-7 min-w-7 items-center justify-center rounded px-2 hover:bg-white hover:text-[#00b4fa] ${
+                    item === "清空" || item === "清除样式" ? "text-[#c4c8d0]" : ""
+                  } ${item === "B" ? "font-semibold" : ""} ${item === "I" ? "italic" : ""} ${item === "U" ? "underline" : ""}`}
+                >
+                  {item}
+                </button>
+              ))}
+              {groupIndex === 3 && <span className="ml-1 h-4 w-7 rounded-full bg-[#d7dde6]" />}
+            </div>
+          ))}
+        </div>
+        <div className="grid h-8 grid-cols-[46px_minmax(420px,1fr)_minmax(520px,1.05fr)_92px] items-center border-t border-[#edf0f4] bg-white text-[12px] text-[#666]">
+          <div className="px-3">句Q</div>
+          <div className="flex items-center gap-3 border-l border-[#edf0f4] px-3">
+            <span>原文：简体中文</span>
+            <div className="ml-auto flex h-6 w-[190px] items-center rounded border border-[#e5e7ec] bg-white px-2">
+              <input className="min-w-0 flex-1 bg-transparent text-[12px] outline-none placeholder:text-[#c4c8d0]" placeholder="搜索原文" />
+              <Search className="h-3.5 w-3.5 text-[#999]" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 border-l border-[#edf0f4] px-3">
+            <span>译文：英语</span>
+            <div className="ml-auto flex h-6 w-[190px] items-center rounded border border-[#e5e7ec] bg-white px-2">
+              <input className="min-w-0 flex-1 bg-transparent text-[12px] outline-none placeholder:text-[#c4c8d0]" placeholder="搜索译文" />
+              <Search className="h-3.5 w-3.5 text-[#999]" />
+            </div>
+          </div>
+          <div className="flex items-center justify-around border-l border-[#edf0f4]">
+            <span>QA</span>
+            <span>状态</span>
+          </div>
+        </div>
+      </section>
+
+      <main className="flex min-h-0 flex-1 bg-white">
+        <section className="min-w-0 flex-1 overflow-auto">
+          <div className="min-w-[980px]">
+            {webcatSegments.map((segment) => (
+              <div
+                key={segment.no}
+                className={`grid min-h-9 grid-cols-[46px_minmax(420px,1fr)_minmax(520px,1.05fr)_92px] border-b border-[#f0f1f3] text-[13px] leading-5 ${
+                  segment.active ? "bg-[#fbfdff]" : "hover:bg-[rgba(0,198,243,.04)]"
+                }`}
+              >
+                <div className="flex items-center gap-2 px-1.5 text-[#666]">
+                  <input type="checkbox" aria-label={`选择第 ${segment.no} 句`} className="h-3.5 w-3.5 rounded border-[#d9dee8] accent-[#00befa]" />
+                  <span className="w-6 text-right text-[12px]">{segment.no}</span>
+                </div>
+                <div className="flex items-center border-l border-[#f0f1f3] px-3 py-2 text-[#333]">
+                  {segment.source}
+                </div>
+                <div className="relative border-l border-[#f0f1f3] px-3 py-2 text-[#333]">
+                  <div
+                    className={`min-h-7 rounded px-2 py-1 ${
+                      segment.active ? "border border-[#00befa] bg-[#eefbff] shadow-[0_0_0_2px_rgba(0,198,243,.08)]" : ""
+                    }`}
+                  >
+                    {segment.target}
+                  </div>
+                  {(segment.no === 154 || segment.no === 157 || segment.no === 159 || segment.no === 165 || segment.no === 167) && (
+                    <span className="absolute left-1 top-1 h-1.5 w-1.5 rounded-full bg-[#8be8ff]" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between border-l border-[#f0f1f3] px-2 text-[12px]">
+                  <span className="h-3.5 w-3.5 rounded-full bg-[#edf1f5]" />
+                  <span
+                    className={`font-medium ${
+                      segment.origin === "rep"
+                        ? "text-[#ff7a45]"
+                        : segment.origin === "mt"
+                          ? "text-[#00aeda]"
+                          : "text-[#52c41a]"
+                    }`}
+                  >
+                    {segment.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <aside
+          className={`shrink-0 overflow-hidden border-l border-[#dceffb] bg-[#eef8ff] p-3 transition-[width] duration-200 ${
+            activeAssistantTab === "智能问答" ? "w-[760px]" : "w-[360px]"
+          }`}
+        >
+          <div className="mb-3 flex h-8 items-center gap-5 overflow-x-auto border-b border-[#d8edf8] text-[13px] text-[#333]">
+            {webcatAssistantTabs.map((tab) => (
+              <div key={tab} className="relative flex h-8 shrink-0 items-center gap-1 whitespace-nowrap">
+                <button
+                  type="button"
+                  onClick={() => setActiveAssistantTab(tab)}
+                  className={`h-8 ${
+                    tab === activeAssistantTab ? "font-medium text-[#00aeda]" : "text-[#333] hover:text-[#00b4fa]"
+                  }`}
+                >
+                  {tab}
+                </button>
+                {tab === "智能问答" && (
+                  <button
+                    type="button"
+                    aria-label="新开页面进入智能问答"
+                    title="新开页面进入智能问答"
+                    onClick={openKnowledgeQaPage}
+                    className="flex h-5 w-5 items-center justify-center rounded text-[#8aa4b4] hover:bg-white hover:text-[#00aeda]"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {tab === activeAssistantTab && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded bg-[#00befa]" />}
+              </div>
+            ))}
+          </div>
+          {activeAssistantTab === "智能问答" ? (
+            <div className="h-[calc(100vh-185px)] overflow-hidden rounded-md border border-[#dceffb] bg-white shadow-[0_1px_10px_rgba(32,22,120,0.04)]">
+              <KnowledgeQaWorkspace embedded onOpenTranslate={onBackProject} />
+            </div>
+          ) : (
+            <div className="rounded-lg bg-white p-3 shadow-[0_1px_10px_rgba(32,22,120,0.04)]">
+              <div className="mb-2 text-[13px] leading-5 text-[#333]">
+                3）与公司的其他政策和目标同等重要，由各级最高管理者签发，且可公开获取。
+              </div>
+              <div className="text-[13px] leading-5 text-[#7d8a9d]">
+                3)It shall be equally important as other company policies and objectives, issued by top management at all levels, and publicly accessible.
+              </div>
+              <div className="mt-3 flex items-center gap-2 text-[12px] text-[#999]">
+                <button type="button" className="h-6 rounded bg-[#e6f9ff] px-3 text-[#00aeda] hover:bg-[#d7f5ff]">应用</button>
+                <span className="ml-auto">语料填充</span>
+                <span className="font-medium text-[#52c41a]">100%</span>
+                <span>2026-06-09 11:11</span>
+              </div>
+            </div>
+          )}
+        </aside>
+      </main>
+
+      <footer className="flex h-9 shrink-0 items-center border-t border-[#edf0f4] bg-white px-3 text-[12px] text-[#666]">
+        <button type="button" className="inline-flex items-center gap-1 hover:text-[#00b4fa]">
+          原文预览
+          <ChevronDown className="h-3.5 w-3.5" />
+        </button>
+        <button type="button" aria-label="收起预览" className="ml-3 h-6 w-6 rounded border border-[#e5e7ec] text-[#999] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+          ^
+        </button>
+        <button type="button" aria-label="全屏预览" className="ml-1 h-6 w-6 rounded border border-[#e5e7ec] text-[#999] hover:border-[#00c6f3] hover:text-[#00b4fa]">
+          ⛶
+        </button>
+        <span className="ml-3">CPET管理手册.docx</span>
+        <span className="ml-auto">总148句</span>
+      </footer>
+    </div>
+  );
+}
+
 export default function App() {
-  const [workspace, setWorkspace] = useState<"translate" | "qa">("translate");
+  const [workspace, setWorkspace] = useState<"translate" | "project" | "qa" | "webcat">(() => {
+    const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
+    if (
+      requestedWorkspace === "translate" ||
+      requestedWorkspace === "project" ||
+      requestedWorkspace === "qa" ||
+      requestedWorkspace === "webcat"
+    ) {
+      return requestedWorkspace;
+    }
+    return "translate";
+  });
 
   if (window.location.pathname === "/document-preview") {
     return <DocumentPreviewPage />;
   }
 
   if (workspace === "qa") {
-    return <KnowledgeQaWorkspace onOpenTranslate={() => setWorkspace("translate")} />;
+    return (
+      <KnowledgeQaWorkspace
+        onOpenTranslate={() => setWorkspace("translate")}
+        onOpenProject={() => setWorkspace("project")}
+      />
+    );
   }
 
-  return <DocumentFastTranslatePage onOpenKnowledgeQa={() => setWorkspace("qa")} />;
+  if (workspace === "project") {
+    return (
+      <ProjectManagementPage
+        onOpenTranslate={() => setWorkspace("translate")}
+        onOpenKnowledgeQa={() => setWorkspace("qa")}
+        onOpenWebcat={() => setWorkspace("webcat")}
+      />
+    );
+  }
+
+  if (workspace === "webcat") {
+    return <WebCatPage onBackProject={() => setWorkspace("project")} />;
+  }
+
+  return (
+    <DocumentFastTranslatePage
+      onOpenKnowledgeQa={() => setWorkspace("qa")}
+      onOpenProject={() => setWorkspace("project")}
+    />
+  );
 }
