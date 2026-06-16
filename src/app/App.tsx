@@ -50,8 +50,18 @@ type Conversation = {
 type Workspace = "translate" | "project" | "qa" | "webcat";
 
 const workspaceValues: Workspace[] = ["translate", "project", "qa", "webcat"];
+const workspacePathMap: Record<Workspace, string> = {
+  translate: "/translate",
+  project: "/project",
+  qa: "/qa",
+  webcat: "/webcat",
+};
 
 function readWorkspaceFromUrl(): Workspace {
+  const pathname = window.location.pathname.replace(/\/$/, "") || "/";
+  const pathWorkspace = workspaceValues.find((workspace) => workspacePathMap[workspace] === pathname);
+  if (pathWorkspace) return pathWorkspace;
+
   const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
   return workspaceValues.includes(requestedWorkspace as Workspace)
     ? (requestedWorkspace as Workspace)
@@ -60,7 +70,8 @@ function readWorkspaceFromUrl(): Workspace {
 
 function buildWorkspaceUrl(workspace: Workspace) {
   const url = new URL(window.location.href);
-  url.searchParams.set("workspace", workspace);
+  url.pathname = workspacePathMap[workspace];
+  url.searchParams.delete("workspace");
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
@@ -2666,7 +2677,10 @@ export default function App() {
   useEffect(() => {
     const syncWorkspaceFromUrl = () => setWorkspace(readWorkspaceFromUrl());
     window.addEventListener("popstate", syncWorkspaceFromUrl);
-    if (window.location.pathname !== "/document-preview" && !new URLSearchParams(window.location.search).has("workspace")) {
+    const isWorkspacePath = workspaceValues.some(
+      (workspaceValue) => workspacePathMap[workspaceValue] === window.location.pathname.replace(/\/$/, ""),
+    );
+    if (window.location.pathname !== "/document-preview" && !isWorkspacePath) {
       window.history.replaceState({ workspace }, "", buildWorkspaceUrl(workspace));
     }
     return () => window.removeEventListener("popstate", syncWorkspaceFromUrl);
