@@ -47,6 +47,23 @@ type Conversation = {
   active?: boolean;
 };
 
+type Workspace = "translate" | "project" | "qa" | "webcat";
+
+const workspaceValues: Workspace[] = ["translate", "project", "qa", "webcat"];
+
+function readWorkspaceFromUrl(): Workspace {
+  const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
+  return workspaceValues.includes(requestedWorkspace as Workspace)
+    ? (requestedWorkspace as Workspace)
+    : "translate";
+}
+
+function buildWorkspaceUrl(workspace: Workspace) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("workspace", workspace);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 type HitDocument = {
   id: string;
   knowledgeBase: string;
@@ -2644,18 +2661,21 @@ function WebCatPage({ onBackProject }: { onBackProject: () => void }) {
 }
 
 export default function App() {
-  const [workspace, setWorkspace] = useState<"translate" | "project" | "qa" | "webcat">(() => {
-    const requestedWorkspace = new URLSearchParams(window.location.search).get("workspace");
-    if (
-      requestedWorkspace === "translate" ||
-      requestedWorkspace === "project" ||
-      requestedWorkspace === "qa" ||
-      requestedWorkspace === "webcat"
-    ) {
-      return requestedWorkspace;
+  const [workspace, setWorkspace] = useState<Workspace>(() => readWorkspaceFromUrl());
+
+  useEffect(() => {
+    const syncWorkspaceFromUrl = () => setWorkspace(readWorkspaceFromUrl());
+    window.addEventListener("popstate", syncWorkspaceFromUrl);
+    if (window.location.pathname !== "/document-preview" && !new URLSearchParams(window.location.search).has("workspace")) {
+      window.history.replaceState({ workspace }, "", buildWorkspaceUrl(workspace));
     }
-    return "translate";
-  });
+    return () => window.removeEventListener("popstate", syncWorkspaceFromUrl);
+  }, [workspace]);
+
+  const navigateWorkspace = (nextWorkspace: Workspace) => {
+    setWorkspace(nextWorkspace);
+    window.history.pushState({ workspace: nextWorkspace }, "", buildWorkspaceUrl(nextWorkspace));
+  };
 
   if (window.location.pathname === "/document-preview") {
     return <DocumentPreviewPage />;
@@ -2664,8 +2684,8 @@ export default function App() {
   if (workspace === "qa") {
     return (
       <KnowledgeQaWorkspace
-        onOpenTranslate={() => setWorkspace("translate")}
-        onOpenProject={() => setWorkspace("project")}
+        onOpenTranslate={() => navigateWorkspace("translate")}
+        onOpenProject={() => navigateWorkspace("project")}
       />
     );
   }
@@ -2673,21 +2693,21 @@ export default function App() {
   if (workspace === "project") {
     return (
       <ProjectManagementPage
-        onOpenTranslate={() => setWorkspace("translate")}
-        onOpenKnowledgeQa={() => setWorkspace("qa")}
-        onOpenWebcat={() => setWorkspace("webcat")}
+        onOpenTranslate={() => navigateWorkspace("translate")}
+        onOpenKnowledgeQa={() => navigateWorkspace("qa")}
+        onOpenWebcat={() => navigateWorkspace("webcat")}
       />
     );
   }
 
   if (workspace === "webcat") {
-    return <WebCatPage onBackProject={() => setWorkspace("project")} />;
+    return <WebCatPage onBackProject={() => navigateWorkspace("project")} />;
   }
 
   return (
     <DocumentFastTranslatePage
-      onOpenKnowledgeQa={() => setWorkspace("qa")}
-      onOpenProject={() => setWorkspace("project")}
+      onOpenKnowledgeQa={() => navigateWorkspace("qa")}
+      onOpenProject={() => navigateWorkspace("project")}
     />
   );
 }
