@@ -19,6 +19,7 @@ import {
   Home,
   Languages,
   Link2,
+  MoreHorizontal,
   Paperclip,
   Pencil,
   Plus,
@@ -580,6 +581,12 @@ const translateRecords = [
   ["01 洗碗机说明书_扫描版-1.pdf", "内部", "2026.06.04 20:56", "中 - 英", "传神多语", "3977", "解析完成", "翻译完成"],
 ];
 
+const knowledgeSyncUpdatedDocs = translateRecords.slice(0, 3).map(([name, level, updatedAt]) => ({
+  name,
+  level,
+  updatedAt,
+}));
+
 const projectRecords = [
   {
     name: "售前资料多语翻译项目",
@@ -892,7 +899,7 @@ function TranslationFileNameCell({
   const summary = summaryByFileName[name];
   const canPreview = summaryStatus === "done" && Boolean(summary);
   const canShowHoverCard = summaryStatus === "generating" || canPreview;
-  const summaryLoadingText = "智能解析中...";
+  const summaryLoadingText = "智能分析中";
   const summaryLoadingTooltip = "概要与知识点生成中...";
   const outlineSummaryIcon = (loading = false, tooltip?: string) => (
     <span
@@ -974,10 +981,39 @@ function DocumentFastTranslatePage({
   const [selectedDocIndexes, setSelectedDocIndexes] = useState<Set<number>>(() => new Set());
   const [qaDrawerOpen, setQaDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [syncToastVisible, setSyncToastVisible] = useState(false);
+  const [contentSyncing, setContentSyncing] = useState(false);
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncFileKeyword, setSyncFileKeyword] = useState("");
+  const [syncCurrentPage, setSyncCurrentPage] = useState(1);
+  const [selectedSyncFileNames, setSelectedSyncFileNames] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [analysisToastVisible, setAnalysisToastVisible] = useState(false);
+  const [openRowActionIndex, setOpenRowActionIndex] = useState<number | null>(null);
   const [generatingSummaryNames, setGeneratingSummaryNames] = useState<Set<string>>(
     () => new Set([translateRecords[0][0]]),
   );
   const allDocsSelected = selectedDocIndexes.size === translateRecords.length;
+  const selectedHasAnalyzingDoc = Array.from(selectedDocIndexes).some((index) => {
+    const row = translateRecords[index];
+    if (!row) return false;
+    return row[6] === "解析中" || generatingSummaryNames.has(row[0]);
+  });
+  const filteredSyncDocs = useMemo(() => {
+    const keyword = syncFileKeyword.trim().toLowerCase();
+    return keyword
+      ? knowledgeSyncUpdatedDocs.filter((doc) => doc.name.toLowerCase().includes(keyword))
+      : knowledgeSyncUpdatedDocs;
+  }, [syncFileKeyword]);
+  const syncPageSize = 5;
+  const syncTotalPages = Math.max(1, Math.ceil(filteredSyncDocs.length / syncPageSize));
+  const paginatedSyncDocs = filteredSyncDocs.slice(
+    (syncCurrentPage - 1) * syncPageSize,
+    syncCurrentPage * syncPageSize,
+  );
+  const allPageSyncDocsSelected = paginatedSyncDocs.length > 0
+    && paginatedSyncDocs.every((doc) => selectedSyncFileNames.has(doc.name));
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -989,6 +1025,18 @@ function DocumentFastTranslatePage({
     }, 12000);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!syncToastVisible) return undefined;
+    const timer = window.setTimeout(() => setSyncToastVisible(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [syncToastVisible]);
+
+  useEffect(() => {
+    if (!analysisToastVisible) return undefined;
+    const timer = window.setTimeout(() => setAnalysisToastVisible(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [analysisToastVisible]);
 
   const toggleDocSelection = (index: number) => {
     setSelectedDocIndexes((prev) => {
@@ -1118,7 +1166,7 @@ function DocumentFastTranslatePage({
           </div>
 
           <section className="rounded-xl bg-white p-5 shadow-[0_1px_10px_rgba(32,22,120,0.04)]">
-            <div className="mb-4 flex items-center gap-2">
+            <div className="mb-4 flex items-start gap-2">
               <input
                 placeholder="文件名称"
                 className="h-8 w-[200px] rounded-md border border-[#eee] px-3 text-[13px] outline-none placeholder:text-[#c7cbd2] focus:border-[#8ce8fb]"
@@ -1129,14 +1177,44 @@ function DocumentFastTranslatePage({
               </button>
               <button type="button" className="h-8 rounded-md bg-[#00befa] px-5 text-[13px] text-white hover:bg-[#00b4fa]">查询</button>
               <button type="button" className="h-8 rounded-md border border-[#eee] bg-white px-5 text-[13px] text-[#555] hover:border-[#00c6f3] hover:text-[#00b4fa]">重置</button>
-              <button
-                type="button"
-                onClick={() => setQaDrawerOpen(true)}
-                className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-md bg-[#00befa] px-4 text-[13px] text-white hover:bg-[#00b4fa]"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                智能问答
-              </button>
+              <div className="ml-auto flex flex-col items-end gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedHasAnalyzingDoc) {
+                      setAnalysisToastVisible(true);
+                      return;
+                    }
+                    setQaDrawerOpen(true);
+                  }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#00befa] px-4 text-[13px] text-white hover:bg-[#00b4fa]"
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  智能问答
+                </button>
+                <div className="relative text-right text-[12px] leading-[18px] text-[#999]">
+                  {contentSyncing ? (
+                    <span>文档内容同步中...</span>
+                  ) : (
+                    <>
+                      发现{knowledgeSyncUpdatedDocs.length}
+                      份文档内容已更新，可同步到知识库
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSyncFileKeyword("");
+                          setSyncCurrentPage(1);
+                          setSelectedSyncFileNames(new Set());
+                          setSyncDialogOpen(true);
+                        }}
+                        className="ml-1 text-[#00aeda] hover:underline"
+                      >
+                        查看
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="overflow-visible rounded-sm">
@@ -1223,7 +1301,7 @@ function DocumentFastTranslatePage({
                         </td>
                         <td className={`whitespace-nowrap px-3 ${failed ? "text-[#f56c6c]" : ""}`}>{row[7]}</td>
                         <td className="whitespace-nowrap px-3">
-                          <div className="flex items-center gap-4 whitespace-nowrap text-[13px]">
+                          <div className="flex items-center gap-3 whitespace-nowrap text-[13px]">
                             {!failed && (
                               <>
                                 <button type="button" className="text-[#00b4fa] hover:underline">查看</button>
@@ -1231,7 +1309,48 @@ function DocumentFastTranslatePage({
                                 <button type="button" className="text-[#00b4fa] hover:underline">深度编辑</button>
                               </>
                             )}
-                            <button type="button" className={failed ? "text-[#00b4fa] hover:underline" : "text-[#00b4fa] hover:underline"}>删除</button>
+                            <div
+                              className="relative"
+                              onBlur={(event) => {
+                                if (!event.currentTarget.contains(event.relatedTarget)) {
+                                  setOpenRowActionIndex(null);
+                                }
+                              }}
+                            >
+                              <button
+                                type="button"
+                                aria-label={`更多操作 ${row[0]}`}
+                                title="更多操作"
+                                aria-expanded={openRowActionIndex === index}
+                                onClick={() => setOpenRowActionIndex((current) => current === index ? null : index)}
+                                className="flex h-7 w-7 items-center justify-center rounded text-[#8a93a2] hover:bg-[#f3fdff] hover:text-[#00b4fa]"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              {openRowActionIndex === index && (
+                                <div className="absolute right-0 top-8 z-[100] w-[136px] rounded-md border border-[#e5e7ec] bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,.12)]">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSyncToastVisible(true);
+                                      setOpenRowActionIndex(null);
+                                    }}
+                                    className="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] text-[#333] hover:bg-[#f3fdff] hover:text-[#00b4fa]"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                    知识库同步
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenRowActionIndex(null)}
+                                    className="flex h-8 w-full items-center gap-2 px-3 text-left text-[13px] text-[#f56c6c] hover:bg-[#fff5f5]"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    删除
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1272,6 +1391,398 @@ function DocumentFastTranslatePage({
         onClose={() => setQaDrawerOpen(false)}
         onOpenKnowledgeQa={onOpenKnowledgeQa}
       />
+      {syncDialogOpen && (
+        <div
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(0,0,0,.35)]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setSyncDialogOpen(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sync-dialog-title"
+            className="w-[640px] overflow-hidden rounded-lg bg-white shadow-[0_16px_48px_rgba(0,0,0,.18)]"
+          >
+            <header className="flex h-14 items-center border-b border-[#ebedf0] px-5">
+              <div>
+                <h2 id="sync-dialog-title" className="text-[16px] font-semibold text-[#333]">待同步文档</h2>
+                <p className="mt-0.5 text-[12px] text-[#999]">发现{knowledgeSyncUpdatedDocs.length}份文档内容已更新，可将原文与译文(如有)同步至知识库</p>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭待同步文档弹窗"
+                title="关闭"
+                onClick={() => setSyncDialogOpen(false)}
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded text-[#9098a4] hover:bg-[#f5f6f8] hover:text-[#555]"
+              >
+                <XIcon className="h-4 w-4" />
+              </button>
+            </header>
+
+            <div className="p-5">
+              <div className="relative mb-4 w-[280px]">
+                <input
+                  value={syncFileKeyword}
+                  onChange={(event) => {
+                    setSyncFileKeyword(event.target.value);
+                    setSyncCurrentPage(1);
+                  }}
+                  placeholder="搜索文件名称"
+                  aria-label="搜索待同步文件名称"
+                  className="h-8 w-full rounded-md border border-[#e5e7ec] px-3 pr-8 text-[13px] outline-none placeholder:text-[#c2c7d0] focus:border-[#8ce8fb]"
+                />
+                <Search className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#999]" />
+              </div>
+
+              <div className="max-h-[320px] overflow-y-auto rounded-md border border-[#eee]">
+                <table className="w-full table-fixed border-collapse text-[13px]">
+                  <thead className="sticky top-0 z-10 bg-[#f9fafc] text-left text-[#666]">
+                    <tr>
+                      <th className="h-10 w-[48px] px-3 font-medium">
+                        <input
+                          type="checkbox"
+                          aria-label="全选当前页文档"
+                          checked={allPageSyncDocsSelected}
+                          onChange={() => {
+                            setSelectedSyncFileNames((previous) => {
+                              const next = new Set(previous);
+                              if (allPageSyncDocsSelected) {
+                                paginatedSyncDocs.forEach((doc) => next.delete(doc.name));
+                              } else {
+                                paginatedSyncDocs.forEach((doc) => next.add(doc.name));
+                              }
+                              return next;
+                            });
+                          }}
+                          className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                        />
+                      </th>
+                      <th className="h-10 px-3 font-medium">文件名</th>
+                      <th className="h-10 w-[90px] px-3 font-medium">文件密级</th>
+                      <th className="h-10 w-[160px] px-3 font-medium">更新时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedSyncDocs.map((doc) => (
+                      <tr key={doc.name} className="border-t border-[#eee] text-[#333] hover:bg-[rgba(0,198,243,.04)]">
+                        <td className="h-11 px-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`选择文档 ${doc.name}`}
+                            checked={selectedSyncFileNames.has(doc.name)}
+                            onChange={() => {
+                              setSelectedSyncFileNames((previous) => {
+                                const next = new Set(previous);
+                                if (next.has(doc.name)) next.delete(doc.name);
+                                else next.add(doc.name);
+                                return next;
+                              });
+                            }}
+                            className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                          />
+                        </td>
+                        <td className="truncate px-3" title={doc.name}>{doc.name}</td>
+                        <td className="px-3">
+                          <span className="inline-flex h-5 items-center rounded border border-[#d9dee8] px-1.5 text-[12px] text-[#777]">{doc.level}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 text-[#666]">{doc.updatedAt}</td>
+                      </tr>
+                    ))}
+                    {filteredSyncDocs.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="h-28 text-center text-[13px] text-[#999]">未找到匹配文档</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-3 flex h-8 items-center justify-end gap-1.5 text-[12px] text-[#999]">
+                <span className="mr-2">共 {filteredSyncDocs.length} 条</span>
+                <button
+                  type="button"
+                  aria-label="上一页"
+                  title="上一页"
+                  disabled={syncCurrentPage === 1}
+                  onClick={() => setSyncCurrentPage((page) => Math.max(1, page - 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-[#eee] bg-white text-[#666] hover:border-[#8ce8fb] hover:text-[#00b4fa] disabled:cursor-not-allowed disabled:text-[#ccc]"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                {Array.from({ length: syncTotalPages }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setSyncCurrentPage(page)}
+                    className={`h-7 min-w-7 rounded border px-2 ${
+                      page === syncCurrentPage
+                        ? "border-[#8ce8fb] bg-[#f3fdff] text-[#00b4fa]"
+                        : "border-[#eee] bg-white text-[#666] hover:border-[#8ce8fb] hover:text-[#00b4fa]"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-label="下一页"
+                  title="下一页"
+                  disabled={syncCurrentPage === syncTotalPages}
+                  onClick={() => setSyncCurrentPage((page) => Math.min(syncTotalPages, page + 1))}
+                  className="flex h-7 w-7 items-center justify-center rounded border border-[#eee] bg-white text-[#666] hover:border-[#8ce8fb] hover:text-[#00b4fa] disabled:cursor-not-allowed disabled:text-[#ccc]"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+                <span className="ml-1 inline-flex h-7 items-center rounded border border-[#eee] bg-white px-2.5 text-[#666]">
+                  {syncPageSize} 条/页
+                </span>
+              </div>
+            </div>
+
+            <footer className="flex h-16 items-center border-t border-[#ebedf0] px-5">
+              <span className="text-[12px] text-[#999]">已选 {selectedSyncFileNames.size} 份</span>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSyncDialogOpen(false)}
+                  className="h-8 min-w-[80px] rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] text-[#555] hover:border-[#00c6f3] hover:text-[#00b4fa]"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedSyncFileNames.size === 0}
+                  onClick={() => {
+                    setContentSyncing(true);
+                    setSyncDialogOpen(false);
+                    setSyncToastVisible(true);
+                  }}
+                  className="h-8 min-w-[80px] rounded-md bg-[#00befa] px-4 text-[13px] text-white hover:bg-[#00b4fa] disabled:cursor-not-allowed disabled:bg-[#d9dee8]"
+                >
+                  同步
+                </button>
+              </div>
+            </footer>
+          </section>
+        </div>
+      )}
+      {syncToastVisible && (
+        <div className="fixed left-1/2 top-16 z-[120] flex h-10 -translate-x-1/2 items-center gap-2 rounded-md bg-[rgba(0,0,0,.76)] px-4 text-[13px] text-white shadow-[0_8px_24px_rgba(0,0,0,.16)]">
+          <CheckCircle2 className="h-4 w-4 text-[#72d940]" />
+          已发起文档内容同步
+        </div>
+      )}
+      {analysisToastVisible && (
+        <div className="fixed left-1/2 top-16 z-[120] flex h-10 -translate-x-1/2 items-center gap-2 rounded-md bg-[rgba(0,0,0,.76)] px-4 text-[13px] text-white shadow-[0_8px_24px_rgba(0,0,0,.16)]">
+          <Clock3 className="h-4 w-4 text-[#8ce8fb]" />
+          当前文档智能分析中，完成后可进行智能问答
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProjectKnowledgeSyncDialog({
+  open,
+  onClose,
+  onSync,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSync: (fileNames: string[]) => void;
+}) {
+  const [keyword, setKeyword] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedFileNames, setSelectedFileNames] = useState<Set<string>>(() => new Set());
+  const pageSize = 5;
+  const filteredDocs = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    return normalizedKeyword
+      ? knowledgeSyncUpdatedDocs.filter((doc) => doc.name.toLowerCase().includes(normalizedKeyword))
+      : knowledgeSyncUpdatedDocs;
+  }, [keyword]);
+  const totalPages = Math.max(1, Math.ceil(filteredDocs.length / pageSize));
+  const pageDocs = filteredDocs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const allPageSelected = pageDocs.length > 0 && pageDocs.every((doc) => selectedFileNames.has(doc.name));
+
+  useEffect(() => {
+    if (!open) return;
+    setKeyword("");
+    setCurrentPage(1);
+    setSelectedFileNames(new Set());
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(0,0,0,.35)]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-sync-dialog-title"
+        className="w-[640px] overflow-hidden rounded-lg bg-white shadow-[0_16px_48px_rgba(0,0,0,.18)]"
+      >
+        <header className="flex h-14 items-center border-b border-[#ebedf0] px-5">
+          <div>
+            <h2 id="project-sync-dialog-title" className="text-[16px] font-semibold text-[#333]">待同步文档</h2>
+            <p className="mt-0.5 text-[12px] text-[#999]">
+              发现{knowledgeSyncUpdatedDocs.length}份文档内容已更新，可将原文与译文(如有)同步至知识库
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="关闭待同步文档弹窗"
+            title="关闭"
+            onClick={onClose}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded text-[#9098a4] hover:bg-[#f5f6f8] hover:text-[#555]"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="p-5">
+          <div className="relative mb-4 w-[280px]">
+            <input
+              value={keyword}
+              onChange={(event) => {
+                setKeyword(event.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="搜索文件名称"
+              aria-label="搜索待同步文件名称"
+              className="h-8 w-full rounded-md border border-[#e5e7ec] px-3 pr-8 text-[13px] outline-none placeholder:text-[#c2c7d0] focus:border-[#8ce8fb]"
+            />
+            <Search className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#999]" />
+          </div>
+
+          <div className="max-h-[320px] overflow-y-auto rounded-md border border-[#eee]">
+            <table className="w-full table-fixed border-collapse text-[13px]">
+              <thead className="sticky top-0 z-10 bg-[#f9fafc] text-left text-[#666]">
+                <tr>
+                  <th className="h-10 w-[48px] px-3 font-medium">
+                    <input
+                      type="checkbox"
+                      aria-label="全选当前页文档"
+                      checked={allPageSelected}
+                      onChange={() => {
+                        setSelectedFileNames((previous) => {
+                          const next = new Set(previous);
+                          pageDocs.forEach((doc) => {
+                            if (allPageSelected) next.delete(doc.name);
+                            else next.add(doc.name);
+                          });
+                          return next;
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                    />
+                  </th>
+                  <th className="h-10 px-3 font-medium">文件名</th>
+                  <th className="h-10 w-[90px] px-3 font-medium">文件密级</th>
+                  <th className="h-10 w-[160px] px-3 font-medium">更新时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageDocs.map((doc) => (
+                  <tr key={doc.name} className="border-t border-[#eee] text-[#333] hover:bg-[rgba(0,198,243,.04)]">
+                    <td className="h-11 px-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`选择文档 ${doc.name}`}
+                        checked={selectedFileNames.has(doc.name)}
+                        onChange={() => {
+                          setSelectedFileNames((previous) => {
+                            const next = new Set(previous);
+                            if (next.has(doc.name)) next.delete(doc.name);
+                            else next.add(doc.name);
+                            return next;
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-[#d9dee8] accent-[#00befa]"
+                      />
+                    </td>
+                    <td className="truncate px-3" title={doc.name}>{doc.name}</td>
+                    <td className="px-3">
+                      <span className="inline-flex h-5 items-center rounded border border-[#d9dee8] px-1.5 text-[12px] text-[#777]">{doc.level}</span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 text-[#666]">{doc.updatedAt}</td>
+                  </tr>
+                ))}
+                {filteredDocs.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="h-28 text-center text-[13px] text-[#999]">未找到匹配文档</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-3 flex h-8 items-center justify-end gap-1.5 text-[12px] text-[#999]">
+            <span className="mr-2">共 {filteredDocs.length} 条</span>
+            <button
+              type="button"
+              aria-label="上一页"
+              title="上一页"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              className="flex h-7 w-7 items-center justify-center rounded border border-[#eee] text-[#666] disabled:cursor-not-allowed disabled:text-[#ccc]"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+              <button
+                key={page}
+                type="button"
+                onClick={() => setCurrentPage(page)}
+                className={`h-7 min-w-7 rounded border px-2 ${page === currentPage ? "border-[#8ce8fb] bg-[#f3fdff] text-[#00b4fa]" : "border-[#eee] text-[#666]"}`}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-label="下一页"
+              title="下一页"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              className="flex h-7 w-7 items-center justify-center rounded border border-[#eee] text-[#666] disabled:cursor-not-allowed disabled:text-[#ccc]"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            <span className="ml-1 inline-flex h-7 items-center rounded border border-[#eee] px-2.5 text-[#666]">{pageSize} 条/页</span>
+          </div>
+        </div>
+
+        <footer className="flex h-16 items-center border-t border-[#ebedf0] px-5">
+          <span className="text-[12px] text-[#999]">已选 {selectedFileNames.size} 份</span>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-8 min-w-[80px] rounded-md border border-[#e5e7ec] bg-white px-4 text-[13px] text-[#555] hover:border-[#00c6f3] hover:text-[#00b4fa]"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              disabled={selectedFileNames.size === 0}
+              onClick={() => {
+                onSync(Array.from(selectedFileNames));
+                onClose();
+              }}
+              className="h-8 min-w-[80px] rounded-md bg-[#00befa] px-4 text-[13px] text-white hover:bg-[#00b4fa] disabled:cursor-not-allowed disabled:bg-[#d9dee8]"
+            >
+              同步
+            </button>
+          </div>
+        </footer>
+      </section>
     </div>
   );
 }
@@ -1291,6 +1802,10 @@ function ProjectManagementPage({
   const [activeProjectTab, setActiveProjectTab] = useState<"files" | "tasks">("files");
   const [selectedTaskIndexes, setSelectedTaskIndexes] = useState<Set<number>>(() => new Set([0, 1]));
   const [projectSummaryLoading, setProjectSummaryLoading] = useState(true);
+  const [projectFileMenuOpen, setProjectFileMenuOpen] = useState(false);
+  const [projectSyncToastVisible, setProjectSyncToastVisible] = useState(false);
+  const [projectSyncDialogOpen, setProjectSyncDialogOpen] = useState(false);
+  const [projectContentSyncing, setProjectContentSyncing] = useState(false);
   const tabItems = ["文件(1)", "任务", "成员(1)", "动态", "进度", "统计", "设置"];
   const projectFileName = "模块_子模块_陈探_V1.x.docx";
   const selectedTaskCount = selectedTaskIndexes.size;
@@ -1303,6 +1818,12 @@ function ProjectManagementPage({
     const timer = window.setTimeout(() => setProjectSummaryLoading(false), 12000);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!projectSyncToastVisible) return undefined;
+    const timer = window.setTimeout(() => setProjectSyncToastVisible(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [projectSyncToastVisible]);
 
   const toggleTaskSelection = (index: number) => {
     setSelectedTaskIndexes((prev) => {
@@ -1420,13 +1941,29 @@ function ProjectManagementPage({
                 <span>（中朝字数）</span>
                 <button
                   type="button"
-                  className="inline-flex h-6 items-center rounded-full border border-[rgba(0,198,243,.35)] bg-[#f3fdff] px-3 text-[12px] leading-[18px] text-[#00aeda] hover:border-[#00c6f3]"
+                  className="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full border border-[rgba(0,198,243,.35)] bg-[#f3fdff] px-3 text-[12px] leading-[18px] text-[#00aeda] hover:border-[#00c6f3]"
                 >
                   添加历史语料库，可重复率分析
                   <span className="ml-1 text-[#00befa]">节省成本</span>
                   <span className="ml-1 text-[#00aeda]">前往</span>
                 </button>
-                <button type="button" className="ml-auto inline-flex items-center text-[12px] text-[#888] hover:text-[#00b4fa]">
+                {projectContentSyncing ? (
+                  <span className="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full border border-[rgba(0,198,243,.35)] bg-[#f3fdff] px-3 text-[12px] text-[#00aeda]">
+                    文档内容同步中...
+                  </span>
+                ) : (
+                  <span className="inline-flex h-6 shrink-0 items-center whitespace-nowrap rounded-full border border-[rgba(0,198,243,.35)] bg-[#f3fdff] px-3 text-[12px] text-[#00aeda]">
+                    发现{knowledgeSyncUpdatedDocs.length}份文档内容已更新，可同步到知识库
+                    <button
+                      type="button"
+                      onClick={() => setProjectSyncDialogOpen(true)}
+                      className="ml-1 font-medium text-[#00aeda] hover:underline"
+                    >
+                      查看
+                    </button>
+                  </span>
+                )}
+                <button type="button" className="ml-auto inline-flex shrink-0 items-center text-[12px] text-[#888] hover:text-[#00b4fa]">
                   展开
                   <ChevronDown className="ml-1 h-3.5 w-3.5" />
                 </button>
@@ -1575,7 +2112,57 @@ function ProjectManagementPage({
                     <td className="px-3 text-right">
                       <button type="button" onClick={onOpenWebcat} className="mr-3 text-[13px] text-[#00aeda] hover:underline">查看</button>
                       <button type="button" className="mr-3 text-[13px] text-[#00aeda] hover:underline">导出</button>
-                      <button type="button" aria-label="更多文件操作" className="text-[13px] text-[#00aeda] hover:underline">...</button>
+                      <span
+                        className="relative inline-flex"
+                        onBlur={(event) => {
+                          if (!event.currentTarget.contains(event.relatedTarget)) {
+                            setProjectFileMenuOpen(false);
+                          }
+                        }}
+                      >
+                        <button
+                          type="button"
+                          aria-label="更多文件操作"
+                          title="更多文件操作"
+                          aria-expanded={projectFileMenuOpen}
+                          onClick={() => setProjectFileMenuOpen((open) => !open)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded text-[#00aeda] hover:bg-[#f3fdff]"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                        {projectFileMenuOpen && (
+                          <span className="absolute right-0 top-8 z-[100] w-[144px] overflow-hidden rounded-md border border-[#e5e7ec] bg-white py-1 text-left shadow-[0_8px_24px_rgba(0,0,0,.14)]">
+                            {[
+                              "拆分",
+                              "质量评估",
+                              "知识库同步",
+                              "上传离线文件",
+                            ].map((action) => (
+                              <button
+                                key={action}
+                                type="button"
+                                onClick={() => {
+                                  if (action === "知识库同步") {
+                                    setProjectSyncToastVisible(true);
+                                  }
+                                  setProjectFileMenuOpen(false);
+                                }}
+                                className="flex h-8 w-full items-center px-4 text-left text-[13px] text-[#00aeda] hover:bg-[#f3fdff]"
+                              >
+                                {action}
+                              </button>
+                            ))}
+                            <span className="my-1 block border-t border-[#eee]" />
+                            <button
+                              type="button"
+                              onClick={() => setProjectFileMenuOpen(false)}
+                              className="flex h-8 w-full items-center px-4 text-left text-[13px] text-[#f56c6c] hover:bg-[#fff5f5]"
+                            >
+                              删除
+                            </button>
+                          </span>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -1786,6 +2373,20 @@ function ProjectManagementPage({
         onClose={() => setQaDrawerOpen(false)}
         onOpenKnowledgeQa={onOpenKnowledgeQa}
       />
+      <ProjectKnowledgeSyncDialog
+        open={projectSyncDialogOpen}
+        onClose={() => setProjectSyncDialogOpen(false)}
+        onSync={() => {
+          setProjectContentSyncing(true);
+          setProjectSyncToastVisible(true);
+        }}
+      />
+      {projectSyncToastVisible && (
+        <div className="fixed left-1/2 top-16 z-[120] flex h-10 -translate-x-1/2 items-center gap-2 rounded-md bg-[rgba(0,0,0,.76)] px-4 text-[13px] text-white shadow-[0_8px_24px_rgba(0,0,0,.16)]">
+          <CheckCircle2 className="h-4 w-4 text-[#72d940]" />
+          已发起文档内容同步
+        </div>
+      )}
     </div>
   );
 }
