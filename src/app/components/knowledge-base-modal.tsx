@@ -90,7 +90,7 @@ const items: Item[] = [
     tags: ["手持设备", "通讯器"],
     pinned: true,
     documentNotice:
-      "本上上传且涉密等级≤人员密级的文件才出现在列表中",
+      "本人上传且涉密等级≤人员密级的文件才出现在列表中",
   },
   {
     id: "2",
@@ -291,6 +291,24 @@ export function KnowledgeBaseModal({
     const draftDocumentCount = it.documents.filter((document) =>
       draftDocumentKeys.has(`${it.id}:${document.name}`),
     ).length;
+    const filteredDocumentKeys = filteredDocuments.map(
+      (document) => `${it.id}:${document.name}`,
+    );
+    const allFilteredDocumentsSelected =
+      filteredDocumentKeys.length > 0 &&
+      filteredDocumentKeys.every((key) => draftDocumentKeys.has(key));
+
+    const toggleFilteredDocuments = () => {
+      setDraftDocumentKeys((previous) => {
+        const next = new Set(previous);
+        if (allFilteredDocumentsSelected) {
+          filteredDocumentKeys.forEach((key) => next.delete(key));
+        } else {
+          filteredDocumentKeys.forEach((key) => next.add(key));
+        }
+        return next;
+      });
+    };
 
     return (
       <div
@@ -308,10 +326,7 @@ export function KnowledgeBaseModal({
           <span className="min-w-0 truncate text-[13px] font-medium leading-5">
             关联文档
           </span>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="text-[12px] text-[#6b7280]">
-              {draftDocumentCount}/{it.documents.length}
-            </span>
+          <div className="flex shrink-0 items-center">
             <button
               type="button"
               onClick={cancelDocumentSelection}
@@ -341,6 +356,19 @@ export function KnowledgeBaseModal({
             className="h-8 w-full rounded-md border border-[#e5e7ec] bg-white pl-8 pr-3 text-[12px] outline-none placeholder:text-[#9098a4] focus:border-[#00c6f3]"
           />
         </div>
+        <div className="mb-1 flex h-7 items-center justify-between border-b border-[#eef0f3] px-1 text-[12px]">
+          <span className="text-[#6b7280]">
+            已选 {draftDocumentCount}/{it.documents.length}
+          </span>
+          <button
+            type="button"
+            onClick={toggleFilteredDocuments}
+            disabled={filteredDocumentKeys.length === 0}
+            className="h-6 rounded px-1.5 text-[#00aeda] hover:bg-[#e8f9fe] disabled:cursor-not-allowed disabled:text-[#b8bec8]"
+          >
+            {allFilteredDocumentsSelected ? "取消全选" : "全选"}
+          </button>
+        </div>
         <div className={panelMode === "embedded" ? "min-h-0 flex-1 overflow-y-auto" : "min-h-[235px]"}>
           {pagedDocuments.length > 0 ? (
             pagedDocuments.map((doc, index) => {
@@ -349,18 +377,27 @@ export function KnowledgeBaseModal({
               return (
                 <div
                   key={`${doc.name}-${index}`}
-                  className="flex items-start gap-2 border-b border-[#f3f4f7] py-2.5 last:border-b-0"
+                  role="checkbox"
+                  aria-checked={documentChecked}
+                  tabIndex={0}
+                  onClick={() => toggleDocument(documentKey)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleDocument(documentKey);
+                    }
+                  }}
+                  className={`flex cursor-pointer items-start gap-2 border-b border-[#f3f4f7] px-1 py-2.5 outline-none last:border-b-0 hover:bg-[rgba(0,198,243,.04)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00befa] ${
+                    documentChecked ? "bg-[#f3fcff]" : "bg-white"
+                  }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleDocument(documentKey)}
+                  <span
+                    aria-hidden="true"
                     className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                       documentChecked
                         ? "border-[#00befa] bg-[#00befa]"
                         : "border-[#cbd0d8] bg-white"
                     }`}
-                    aria-label={`${documentChecked ? "取消选择" : "选择"} ${doc.name}`}
-                    aria-pressed={documentChecked}
                   >
                     {documentChecked && (
                       <svg viewBox="0 0 12 12" className="h-3 w-3 text-white" fill="none">
@@ -373,7 +410,7 @@ export function KnowledgeBaseModal({
                         />
                       </svg>
                     )}
-                  </button>
+                  </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="min-w-0 break-words text-[12px] leading-5 text-[#3a4150]">
